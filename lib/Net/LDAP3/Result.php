@@ -28,7 +28,7 @@
  */
 class Net_LDAP3_Result implements Iterator
 {
-    public $conn;
+    protected $conn;
     protected $base_dn;
     protected $filter;
     protected $scope;
