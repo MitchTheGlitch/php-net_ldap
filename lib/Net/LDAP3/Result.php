@@ -2,24 +2,26 @@
 
 /*
  +-----------------------------------------------------------------------+
- | program/include/rcube_ldap_result.php                                 |
+ | Net/LDAP3/Result.php                                                  |
  |                                                                       |
- | This file is part of the Roundcube Webmail client                     |
+ | Based on rcube_ldap_result.php created by the Roundcube Webmail       |
+ | client development team.                                              |
+ |                                                                       |
  | Copyright (C) 2006-2012, The Roundcube Dev Team                       |
  | Copyright (C) 2012, Kolab Systems AG                                  |
  |                                                                       |
  | Licensed under the GNU General Public License version 3 or            |
- | any later version with exceptions for skins & plugins.                |
+ | any later version with exceptions for plugins.                        |
  | See the README file for a full license statement.                     |
  |                                                                       |
  | PURPOSE:                                                              |
- |   Model class that represents an LDAP search result                   |
+ |   Provide advanced functionality for accessing LDAP directories       |
  |                                                                       |
  +-----------------------------------------------------------------------+
- | Author: Thomas Bruederli <roundcube@gmail.com>                        |
+ | Authors: Thomas Bruederli <roundcube@gmail.com>                       |
+ |          Jeroen van Meeuwen <vanmeeuwen@kolabsys.com>                 |
  +-----------------------------------------------------------------------+
 */
-
 
 /**
  * Model class representing an LDAP search result

@@ -473,6 +473,24 @@ class Net_LDAP3
         return TRUE;
     }
 
+    /**
+     *   Shortcut to ldap_delete()
+     */
+    public function delete_entry($entry_dn)
+    {
+        $this->_debug("LDAP: C: Delete $entry_dn");
+
+        if (ldap_delete($this->conn, $entry_dn) === FALSE) {
+            $this->_debug("LDAP: S: " . ldap_error($this->conn));
+            $this->_debug("LDAP: Delete failed. " . ldap_error($this->conn));
+            return FALSE;
+        }
+
+        $this->_debug("LDAP: S: OK");
+
+        return TRUE;
+    }
+
     public function effective_rights($subject)
     {
         $effective_rights_control_oid = "1.3.6.1.4.1.42.2.27.9.5.2";
@@ -529,7 +547,7 @@ class Net_LDAP3
                 escapeshellarg($_SESSION['user']->user_bind_pw),
                 '-J',
                 escapeshellarg(implode(':', array(
-                    '1.3.6.1.4.1.42.2.27.9.5.2',            // OID
+                    $effective_rights_control_oid,          // OID
                     'TRUE',                                 // Criticality
                     'dn:' . $_SESSION['user']->user_bind_dn // User DN
                 ))),
@@ -585,7 +603,7 @@ class Net_LDAP3
     {
         $this->_debug("entry_dn on subject $subject");
         $is_dn = ldap_explode_dn($subject, 1);
-        $this->_debug($is_dn);
+        $this->_debug($is_dn ? "entry_dn is a dn" : "entry_dn is not a dn");
 
         if (is_array($is_dn) && array_key_exists("count", $is_dn) && $is_dn["count"] > 0) {
             return $subject;
@@ -1135,7 +1153,12 @@ class Net_LDAP3
         if ($this->vlv_active && isset($this->additional_filter)) {
             $filter = "(&" . $filter . $this->additional_filter . ")";
             $this->_debug("C: Setting a filter of " . $filter);
+        } else {
+            $filter = "(&" . $filter . $this->additional_filter . ")";
+            $this->_debug("C: (Without VLV) Setting a filter of " . $filter);
         }
+
+        $this->_debug("Executing search with return attributes: " . var_export($this->return_attributes, TRUE));
 
         $ldap_result = @$function(
                 $this->conn,
@@ -1160,7 +1183,7 @@ class Net_LDAP3
                 $this->result->set('count', $vlv_count);
                 $this->result->set('vlv', TRUE);
             } else {
-                $this->_debug("S: ".($errmsg ? $errmsg : ldap_error($this->conn)));
+                $this->_debug("S: " . ($errmsg ? $errmsg : ldap_error($this->conn)));
                 new PEAR_Error("Something went terribly wrong");
             }
         } else {
@@ -1178,8 +1201,12 @@ class Net_LDAP3
             to an additional filter.
         */
 
-        if (count($search) > 1) {
+        $this->_debug("Net_LDAP3::search_entries with search " . var_export($search, TRUE));
+
+        if (is_array($search) && array_key_exists('params', $search)) {
+            $this->_debug("C: Composing search filter");
             $_search = $this->search_filter($search);
+            $this->_debug("C: Search filter: $_search");
 
             if (!empty($_search)) {
                 $this->additional_filter = $_search;
@@ -1421,25 +1448,8 @@ class Net_LDAP3
     }
 
     private function config_set_return_attributes($attribute_names = Array('entrydn')) {
+        $this->_debug("setting return attributes: " . var_export($attribute_names, TRUE));
         $this->return_attributes = (Array)($attribute_names);
-    }
-
-    /**
-     *   Shortcut to ldap_delete()
-     */
-    private function delete_entry($entry_dn)
-    {
-        $this->_debug("LDAP: C: Delete $entry_dn");
-
-        if (ldap_delete($this->conn, $entry_dn) === FALSE) {
-            $this->_debug("LDAP: S: " . ldap_error($this->conn));
-            $this->_debug("LDAP: Delete failed. " . ldap_error($this->conn));
-            return FALSE;
-        }
-
-        $this->_debug("LDAP: S: OK");
-
-        return TRUE;
     }
 
     /**
@@ -1454,9 +1464,13 @@ class Net_LDAP3
             return FALSE;
         }
 
-        if ($this->_vlv_indexes_and_searches === NULL) {
+        if (empty($this->_vlv_indexes_and_searches)) {
             $this->_debug("No VLV information available yet, refreshing");
             $this->find_vlv_indexes_and_searches(TRUE);
+        }
+
+        if (empty($this->_vlv_indexes_and_searches) && !is_array($this->_vlv_indexes_and_searches)) {
+            return FALSE;
         }
 
         $this->_debug("Existing vlv index and search information", $this->_vlv_indexes_and_searches);
@@ -1514,12 +1528,12 @@ class Net_LDAP3
 
         $return_attributes = $this->return_attributes;
 
-        $this->return_attributes = Array('*');
-
         $config_root_dn = $this->config_get('config_root_dn', NULL);
         if (empty($config_root_dn)) {
             return Array();
         }
+
+        $this->return_attributes = Array('*');
 
         $search_result = ldap_search(
                 $this->conn,
@@ -1535,11 +1549,11 @@ class Net_LDAP3
 
         if ($vlv_searches->count() < 1) {
             $this->_debug("Empty result from search for '(objectclass=vlvsearch)' on '$config_root_dn'");
+            $this->return_attributes = $return_attributes;
             return;
         } else {
             $vlv_searches = $vlv_searches->entries(TRUE);
         }
-
 
         foreach ($vlv_searches as $vlv_search_dn => $vlv_search_attrs) {
 
@@ -2101,18 +2115,34 @@ class Net_LDAP3
      *
      * @return string Quoted string
      */
-    private static function _quote_string($str, $dn=FALSE)
+    private static function _quote_string($str, $is_dn = FALSE)
     {
         // take firt entry if array given
-        if (is_array($str))
+        if (is_array($str)) {
             $str = reset($str);
+        }
 
-        if ($dn)
-            $replace = Array(','=>'\2c', '='=>'\3d', '+'=>'\2b', '<'=>'\3c',
-                '>'=>'\3e', ';'=>'\3b', '\\'=>'\5c', '"'=>'\22', '#'=>'\23');
-        else
-            $replace = Array('*'=>'\2a', '('=>'\28', ')'=>'\29', '\\'=>'\5c',
-                '/'=>'\2f');
+        if ($is_dn) {
+            $replace = array(
+                    ',' => '\2c',
+                    '=' => '\3d',
+                    '+' => '\2b',
+                    '<' => '\3c',
+                    '>' => '\3e',
+                    ';' => '\3b',
+                    "\\"=> '\5c',
+                    '"' => '\22',
+                    '#' => '\23'
+                );
+        } else {
+            $replace = array(
+                    '*' => '\2a',
+                    '(' => '\28',
+                    ')' => '\29',
+                    "\\" => '\5c',
+                    '/' => '\2f'
+                );
+        }
 
         return strtr($str, $replace);
     }
