@@ -777,6 +777,19 @@ class Net_LDAP3
             return NULL;
         }
 
+        $entry_dn = $this->entry_dn($username);
+
+        if (!empty($entry_dn)) {
+            $bound = $this->bind($entry_dn, $password);
+
+            if (!$bound) {
+                new PEAR_Error("Could not bind with " . $entry_dn);
+                return NULL;
+            }
+
+            return $entry_dn;
+        }
+
         $base_dn = $this->config_get('root_dn');
 
         if (empty($base_dn)) {
@@ -804,7 +817,7 @@ class Net_LDAP3
             $filter = "(&(|(mail=%s)(alias=%s)(uid=%s))(objectclass=inetorgperson))";
         }
 
-        $this->_debug($filter);
+        $this->_debug("Net::LDAP3::login() original filter: " . $filter);
 
         $replace_patterns = Array(
                 '/%s/' => $username,
@@ -815,7 +828,7 @@ class Net_LDAP3
 
         $filter = preg_replace(array_keys($replace_patterns), array_values($replace_patterns), $filter);
 
-        $this->_debug($filter);
+        $this->_debug("Net::LDAP3::login() actual filter: " . $filter);
 
         $result = $this->search($base_dn, $filter, 'sub');
 
