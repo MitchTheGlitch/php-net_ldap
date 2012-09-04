@@ -753,7 +753,8 @@ class Net_LDAP3
         return $this->result;
     }
 
-    public function login($username, $password) {
+    public function login($username, $password, $domain = null) {
+        $this->_debug("Net_LDAP3::login(\$username = '" . $username . "', \$password = '****', \$domain = '" . $domain . "')");
         $_bind_dn = $this->config_get('service_bind_dn');
         $_bind_pw = $this->config_get('service_bind_pw');
 
@@ -798,13 +799,17 @@ class Net_LDAP3
             return NULL;
         }
 
-        if (count(explode('@', $username)) > 1) {
-            $__parts = explode('@', $username);
-            $localpart = $__parts[0];
-            $domain = $__parts[1];
-        } else {
-            $localpart = $username;
-            $domain = '';
+        $localpart = $username;
+
+        if (empty($domain) ) {
+            if (count(explode('@', $username)) > 1) {
+                $__parts = explode('@', $username);
+                $localpart = $__parts[0];
+                $domain = $__parts[1];
+            } else {
+                $localpart = $username;
+                $domain = '';
+            }
         }
 
         $realm = $domain;
