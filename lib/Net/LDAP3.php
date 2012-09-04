@@ -814,7 +814,7 @@ class Net_LDAP3
             $filter = $this->config_get("filter", NULL);
         }
         if (empty($filter)) {
-            $filter = "(&(|(mail=%s)(alias=%s)(uid=%s))(objectclass=inetorgperson))";
+            $filter = "(&(|(mail=%s)(mail=%U@%d)(alias=%s)(alias=%U@%d)(uid=%s))(objectclass=inetorgperson))";
         }
 
         $this->_debug("Net::LDAP3::login() original filter: " . $filter);
