@@ -1899,11 +1899,16 @@ class Net_LDAP3
 
     private function supported_controls()
     {
+        if (!empty($this->supported_controls)) {
+            return $this->supported_controls;
+        }
+
         $this->_info("Obtaining supported controls");
         $this->return_attributes = Array("supportedcontrol");
         $result = $this->search("", "(objectclass=*)", 'base');
         $result = $result->entries(TRUE);
         $this->_info("Obtained " . count($result['']['supportedcontrol']) . " supported controls");
+        $this->supported_controls = $result['']['supportedcontrol'];
         return $result['']['supportedcontrol'];
     }
 
