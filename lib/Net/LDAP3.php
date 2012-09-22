@@ -1163,9 +1163,13 @@ class Net_LDAP3
 
         $this->_debug("Using function $function on scope $scope (\$ns_function is $ns_function)");
 
-        if ($this->vlv_active && isset($this->additional_filter)) {
-            $filter = "(&" . $filter . $this->additional_filter . ")";
-            $this->_debug("C: Setting a filter of " . $filter);
+        if ($this->vlv_active) {
+            if (isset($this->additional_filter) && !empty($this->additional_filter)) {
+                $filter = "(&" . $filter . $this->additional_filter . ")";
+                $this->_debug("C: (With VLV) Setting a filter (with additional filter) of " . $filter);
+            } else {
+                $this->_debug("C: (With VLV) Setting a filter (without additional filter) of " . $filter);
+            }
         } else {
             $filter = "(&" . $filter . $this->additional_filter . ")";
             $this->_debug("C: (Without VLV) Setting a filter of " . $filter);
