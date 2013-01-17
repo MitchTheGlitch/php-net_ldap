@@ -23,8 +23,7 @@
  +-----------------------------------------------------------------------+
 */
 
-require_once('PEAR.php');
-require_once('LDAP3/Result.php');
+require_once 'LDAP3/Result.php';
 
 /**
  * Model class to access a LDAP directories
@@ -153,7 +152,7 @@ class Net_LDAP3
             // $entries is sequential
 
             if (count($entries) !== count($attributes)) {
-                new PEAR_Error("Wrong entry/attribute count in " . __FUNCTION__);
+                $this->_error("Wrong entry/attribute count in " . __FUNCTION__);
                 return FALSE;
             }
 
@@ -363,8 +362,8 @@ class Net_LDAP3
         }
 
         $this->_debug("S: ".ldap_error($this->conn));
+        $this->_error("Bind failed for dn=$bind_dn: ".ldap_error($this->conn));
 
-        new PEAR_Error("Bind failed for dn=$bind_dn: ".ldap_error($this->conn), ldap_errno($this->conn));
         return FALSE;
     }
 
@@ -434,7 +433,7 @@ class Net_LDAP3
     public function connect()
     {
         if (!function_exists('ldap_connect')) {
-            new PEAR_Error("No ldap support in this PHP installation", 100);
+            $this->_error("No ldap support in this PHP installation");
             return FALSE;
         }
 
@@ -448,7 +447,7 @@ class Net_LDAP3
 
         if (empty($config_hosts)) {
             if (empty($config_host)) {
-                new PEAR_Error("No host or hosts configured", __LINE__);
+                $this->_error("No host or hosts configured");
                 return FALSE;
             }
 
@@ -495,7 +494,7 @@ class Net_LDAP3
         }
 
         if (!is_resource($this->conn)) {
-            new PEAR_Error("Could not connect to LDAP", 100);
+            $this->_error("Could not connect to LDAP");
             return FALSE;
         }
 
@@ -741,7 +740,7 @@ class Net_LDAP3
     public function get_count($base_dn, $filter = '(objectclass=*)', $scope = 'sub')
     {
         if (!$this->__result_current($base_dn, $filter, $scope)) {
-            new PEAR_Error("No current search result for these search parameters");
+            $this->error("No current search result for these search parameters");
             return FALSE;
         }
 
@@ -797,13 +796,11 @@ class Net_LDAP3
         $_bind_pw = $this->config_get('service_bind_pw');
 
         if (empty($_bind_dn)) {
-            new PEAR_Error("No valid service bind dn found.");
             $this->_debug("No valid service bind dn found.");
             return NULL;
         }
 
         if (empty($_bind_pw)) {
-            new PEAR_Error("No valid service bind password found.");
             $this->_debug("No valid service bind password found.");
             return NULL;
         }
@@ -811,7 +808,6 @@ class Net_LDAP3
         $bound = $this->bind($_bind_dn, $_bind_pw);
 
         if (!$bound) {
-            new PEAR_Error("Could not bind with service bind credentials.");
             $this->_debug("Could not bind with service bind credentials.");
             return NULL;
         }
@@ -822,7 +818,7 @@ class Net_LDAP3
             $bound = $this->bind($entry_dn, $password);
 
             if (!$bound) {
-                new PEAR_Error("Could not bind with " . $entry_dn);
+                $this->_error("Could not bind with " . $entry_dn);
                 return NULL;
             }
 
@@ -832,7 +828,6 @@ class Net_LDAP3
         $base_dn = $this->config_get('root_dn');
 
         if (empty($base_dn)) {
-            new PEAR_Error("Could not get a valid base dn to search.");
             $this->_debug("Could not get a valid base dn to search.");
             return NULL;
         }
@@ -876,14 +871,15 @@ class Net_LDAP3
         $result = $this->search($base_dn, $filter, 'sub');
 
         if (!$result) {
-            new PEAR_Error("Could not search $base_dn with $filter");
+            $this->_debug("Could not search $base_dn with $filter");
+            return NULL;
         }
 
         if ($this->result->count() > 1) {
-            new PEAR_Error("Multiple entries found.");
+            $this->_debug("Multiple entries found.");
             return NULL;
         } else if ($this->result->count() < 1) {
-            new PEAR_Error("No entries found.");
+            $this->_debug("No entries found.");
             return NULL;
         }
 
@@ -894,7 +890,7 @@ class Net_LDAP3
         $bound = $this->bind($entry_dn, $password);
 
         if (!$bound) {
-            new PEAR_Error("Could not bind with " . $entry_dn);
+            $this->_debug("Could not bind with " . $entry_dn);
             return NULL;
         }
 
@@ -1192,7 +1188,7 @@ class Net_LDAP3
         }
 
         if (!function_exists('ldap_sasl_bind')) {
-            new PEAR_Error("Unable to bind: ldap_sasl_bind() not exists", 100);
+            $this->_error("Unable to bind: ldap_sasl_bind() not exists");
             return FALSE;
         }
 
@@ -1216,14 +1212,14 @@ class Net_LDAP3
 
         $this->_debug("S: ".ldap_error($this->conn));
 
-        new PEAR_Error("Bind failed for authcid=$authc ".ldap_error($this->conn), ldap_errno($this->conn));
+        $this->_error("Bind failed for authcid=$authc ".ldap_error($this->conn));
         return FALSE;
     }
 
     public function search($base_dn, $filter = '(objectclass=*)', $scope = 'sub', $sort = NULL, $search = array())
     {
         if (!$this->conn) {
-            new PEAR_Error("No active connection for " . __CLASS__ . "->" . __FUNCTION__);
+            $this->_debug("No active connection for " . __CLASS__ . "->" . __FUNCTION__);
             return FALSE;
         }
 
@@ -1271,7 +1267,7 @@ class Net_LDAP3
             );
 
         if (!$ldap_result) {
-            new PEAR_Error("$function failed for dn=$bind_dn: ".ldap_error($this->conn), ldap_errno($this->conn));
+            $this->_debug("$function failed for dn=$bind_dn: ".ldap_error($this->conn));
             return FALSE;
         }
 
@@ -1284,7 +1280,6 @@ class Net_LDAP3
                 $this->result->set('vlv', TRUE);
             } else {
                 $this->_debug("S: " . ($errmsg ? $errmsg : ldap_error($this->conn)));
-                new PEAR_Error("Something went terribly wrong");
             }
         } else {
             $this->result = new Net_LDAP3_Result($this->conn, $base_dn, $filter, $scope, $ldap_result);
@@ -1486,7 +1481,7 @@ class Net_LDAP3
                 return 'base';
                 break;
             default:
-                new PEAR_Error("Scope $scope is not a valid scope integer");
+                $this->_debug("Scope $scope is not a valid scope integer");
                 break;
         }
     }
@@ -1738,7 +1733,7 @@ class Net_LDAP3
             }
 
             $this->_debug("S: NOT OK");
-            new PEAR_Error($_ldap->getMessage());
+            $this->_debug($_ldap->getMessage());
         }
 
         if (is_a($_ldap, 'Net_LDAP2_Error')) {
