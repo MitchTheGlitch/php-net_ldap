@@ -1,0 +1,33 @@
+{
+	"name": "kolab/Net_LDAP3",
+	"description": "A successor of PEAR:Net_LDAP2 providing advanced functionality for accessing LDAP directories",
+	"type": "library",
+	"keywords": [
+		"ldap vlv"
+	],
+	"homepage": "http://git.kolab.org/pear/Net_LDAP3/",
+	"license": "AGPL-3.0",
+	"authors": [
+		{
+			"name": "Jeroen van Meeuwen",
+			"email": "vanmeeuwen@kolabsys.com",
+			"role": "Lead"
+		},
+		{
+			"name": "Aleksander Machniak",
+			"email": "machniak@kolabsys.com",
+			"role": "Developer"
+		},
+		{
+			"name": "Thomas Bruederli",
+			"email": "roundcube@gmail.com",
+			"role": "Developer"
+		}
+	],
+	"require": {
+		"php": ">=5.3.3"
+	},
+	"autoload": {
+		"classmap": ["lib/"]
+	}
+}
