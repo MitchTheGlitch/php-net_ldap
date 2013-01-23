@@ -129,7 +129,16 @@ class Net_LDAP3
         if (!empty($config) && is_array($config)) {
             foreach ($config as $key => $value) {
                 if (!isset($this->config[$key]) || empty($this->config[$key])) {
-                    $this->config[$key] = $value;
+                    $setter = 'config_set_' . $key;
+                    if (method_exists($this, $setter)) {
+                        $this->$setter($value);
+                    }
+                    else if (isset($this->$key)) {
+                        $this->$key = $value;
+                    }
+                    else {
+                        $this->config[$key] = $value;
+                    }
                 }
             }
         }
