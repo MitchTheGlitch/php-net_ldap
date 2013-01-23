@@ -23,7 +23,7 @@
  +-----------------------------------------------------------------------+
 */
 
-require_once 'LDAP3/Result.php';
+require_once __DIR__ . '/LDAP3/Result.php';
 
 /**
  * Model class to access a LDAP directories
