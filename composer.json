@@ -23,8 +23,15 @@
 			"role": "Developer"
 		}
 	],
+	"repositories": [
+		{
+			"type": "pear",
+			"url": "http://pear.php.net/"
+		}
+	],
 	"require": {
-		"php": ">=5.3.3"
+		"php": ">=5.3.3",
+		"pear-pear/Net_LDAP2": ">=2.0.12"
 	},
 	"autoload": {
 		"classmap": ["lib/"]

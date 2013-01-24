@@ -79,6 +79,8 @@ class Net_LDAP3
             'root_dn_db_name' => 'example_org',
             'root_dn_db_name_attr' => 'cn',
             'config_root_dn' => 'cn=config',
+            'referrals' => false,
+            'network_timeout' => 10,
             'sizelimit' => 0,
             'timelimit' => 0,
             // Force VLV off.
@@ -487,6 +489,14 @@ class Net_LDAP3
 
                 $this->_current_host = $host;
                 $this->conn = $lc;
+
+                if (!empty($this->prop['network_timeout'])) {
+                    ldap_set_option(
+                        $lc,
+                        LDAP_OPT_NETWORK_TIMEOUT,
+                        $this->prop['network_timeout']
+                    );
+                }
 
                 if ($this->config_get('referrals', false)) {
                     ldap_set_option(
@@ -1225,6 +1235,17 @@ class Net_LDAP3
         return false;
     }
 
+    /**
+     * Execute LDAP search
+     *
+     * @param string  $base_dn  Base DN to use for searching
+     * @param string  $filter   Filter string to query
+     * @param string  $scope    Scope to use for searching: sub, base, one, list
+     * @param array   $sort     List of attributes to sort results (if VLV is active, this list has to match the VLV index)
+     * @param string  $search   Search string used in $filter. This is only used if VLV is active
+     *
+     * @return mixed  Net_LDAP3_Result instance containing the result set or False on failure
+     */
     public function search($base_dn, $filter = '(objectclass=*)', $scope = 'sub', $sort = null, $search = array())
     {
         if (!$this->conn) {
@@ -1297,14 +1318,15 @@ class Net_LDAP3
         return $this->result;
     }
 
+    /**
+     * Similar to Net_LDAP3::search() but using a search array with multiple
+     * keys and values that to continue to use the VLV but with an original
+     * filter adding the search stuff to an additional filter.
+     *
+     * @see Net_LDAP3::search()
+     */
     public function search_entries($base_dn, $filter = '(objectclass=*)', $scope = 'sub', $sort = null, $search = array())
     {
-        /*
-            Use a search array with multiple keys and values that to continue
-            to use the VLV but with an original filter adding the search stuff
-            to an additional filter.
-        */
-
         $this->_debug("Net_LDAP3::search_entries with search " . var_export($search, true));
 
         if (is_array($search) && array_key_exists('params', $search)) {
@@ -1435,6 +1457,9 @@ class Net_LDAP3
         return $rec;
     }
 
+    /**
+     * Normalize a ldap result by converting entry attribute arrays into single values
+     */
     public static function normalize_result($__result)
     {
         if (!is_array($__result)) {
@@ -1619,9 +1644,9 @@ class Net_LDAP3
     }
 
     /**
-        Return VLV indexes and searches including necessary configuration
-        details.
-    */
+     * Return VLV indexes and searches including necessary configuration
+     * details.
+     */
     private function find_vlv_indexes_and_searches($refresh = false)
     {
         if (!empty($this->config['vlv'])) {
@@ -1713,7 +1738,10 @@ class Net_LDAP3
 
     private function init_schema()
     {
-        require_once("Net/LDAP2.php");
+        // use PEAR include if autoloading failed
+        if (!class_exists('Net_LDAP2')) {
+            require_once('Net/LDAP2.php');
+        }
 
         $port = $this->config_get('port', 389);
 
