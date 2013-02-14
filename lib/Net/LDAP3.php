@@ -502,8 +502,16 @@ class Net_LDAP3
                     ldap_set_option(
                             $lc,
                             LDAP_OPT_REFERRALS,
-                            $this->config['referrals']
+                            (bool)($this->config_get('referrals'))
                         );
+
+                } else {
+                    ldap_set_option(
+                            $lc,
+                            LDAP_OPT_REFERRALS,
+                            (bool)($this->config_get('referrals'))
+                        );
+
                 }
 
                 break;
