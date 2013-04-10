@@ -583,7 +583,7 @@ class Net_LDAP3
         }
 
         if (empty($moz_ldapsearch)) {
-            $this->_debug("Mozilla LDAP C SDK binary ldapsearch not found, cannot get effective rights on subject $subject");
+            $this->_error("Mozilla LDAP C SDK binary ldapsearch not found, cannot get effective rights on subject $subject");
             return null;
         }
 
@@ -620,6 +620,11 @@ class Net_LDAP3
 
         $this->_debug("LDAP: Command output:" . var_export($output, true));
         $this->_debug("Return code: " . $return_code);
+
+        if ($return_code) {
+            $this->_error("Command $moz_ldapsearch returned error code: $return_code");
+            return null;
+        }
 
         $lines = array();
         foreach ($output as $line_num => $line) {
