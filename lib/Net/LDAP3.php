@@ -1310,7 +1310,7 @@ class Net_LDAP3
             );
 
         if (!$ldap_result) {
-            $this->_debug("$function failed for dn=$bind_dn: ".ldap_error($this->conn));
+            $this->_debug("$function failed for dn=$base_dn: ".ldap_error($this->conn));
             return false;
         }
 
