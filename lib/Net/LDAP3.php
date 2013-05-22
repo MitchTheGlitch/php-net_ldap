@@ -554,7 +554,7 @@ class Net_LDAP3
 
         if (!in_array($effective_rights_control_oid, $supported_controls)) {
             $this->_debug("LDAP: No getEffectiveRights control in supportedControls");
-            return $this->legacy_rights($subject);
+            return false;
         }
 
         $attributes = array(
@@ -679,6 +679,9 @@ class Net_LDAP3
         }
 
         $unique_attr = $this->config_get('unique_attribute', 'nsuniqueid');
+
+        Log::trace("Using unique_attribute " . var_export($unique_attr, TRUE) . " at " . __FILE__ . ":" . __LINE__);
+
         $attributes  = array_merge(array($unique_attr => $subject), (array)$attributes);
         $subject     = $this->entry_find_by_attribute($attributes, $base_dn);
 
@@ -730,7 +733,7 @@ class Net_LDAP3
         $this->_debug(__FILE__ . "(" . __LINE__ . "): " .  $member_dn);
 
         $groups  = array();
-        $root_dn = $this->domain_root_dn($this->domain);
+        $root_dn = $this->config_get('root_dn');
 
         // TODO: Do not query for both, it's either one or the other
         $entries = $this->search($root_dn, "(|" .
@@ -738,7 +741,9 @@ class Net_LDAP3
             "(&(objectclass=groupofuniquenames)(uniquemember=$member_dn))" .
             ")");
 
-        $groups  = array_keys($entries);
+        if ($entries) {
+            $groups  = array_keys($entries->entries(TRUE));
+        }
 
         return $groups;
     }
