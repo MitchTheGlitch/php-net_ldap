@@ -680,7 +680,7 @@ class Net_LDAP3
 
         $unique_attr = $this->config_get('unique_attribute', 'nsuniqueid');
 
-        Log::trace("Using unique_attribute " . var_export($unique_attr, TRUE) . " at " . __FILE__ . ":" . __LINE__);
+        $this->_debug("Using unique_attribute " . var_export($unique_attr, TRUE) . " at " . __FILE__ . ":" . __LINE__);
 
         $attributes  = array_merge(array($unique_attr => $subject), (array)$attributes);
         $subject     = $this->entry_find_by_attribute($attributes, $base_dn);
