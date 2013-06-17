@@ -474,7 +474,7 @@ class Net_LDAP3
             {
                 if ($this->config_get('use_tls', false) === true) {
                     if (!ldap_start_tls($lc)) {
-                        $this->_debug("S: Could not start TLS.");
+                        $this->_debug("S: Could not start TLS. " . ldap_error($lc));
                         continue;
                     }
                 }
@@ -498,21 +498,11 @@ class Net_LDAP3
                     );
                 }
 
-                if ($this->config_get('referrals', false)) {
-                    ldap_set_option(
-                            $lc,
-                            LDAP_OPT_REFERRALS,
-                            (bool)($this->config_get('referrals'))
-                        );
-
-                } else {
-                    ldap_set_option(
-                            $lc,
-                            LDAP_OPT_REFERRALS,
-                            (bool)($this->config_get('referrals'))
-                        );
-
-                }
+                ldap_set_option(
+                    $lc,
+                    LDAP_OPT_REFERRALS,
+                    (bool)($this->config_get('referrals'))
+                );
 
                 break;
             }
@@ -570,6 +560,9 @@ class Net_LDAP3
         }
         if (!$entry_dn) {
             $entry_dn = $this->config_get("base_dn");
+        }
+        if (!$entry_dn) {
+            $entry_dn = $this->config_get("root_dn");
         }
 
         $this->_debug("effective_rights for subject $subject resolves to entry dn $entry_dn");
@@ -718,7 +711,7 @@ class Net_LDAP3
         $this->config_set('return_attributes', array_keys($attributes));
         $result = $this->search($base_dn, $filter);
 
-        if ($result->count() > 0) {
+        if ($result && $result->count() > 0) {
             $this->_debug("Results found: " . implode(', ', array_keys($result->entries(true))));
             return $result->entries(true);
         }
@@ -2066,11 +2059,18 @@ class Net_LDAP3
 
         $this->_info("Obtaining supported controls");
         $this->return_attributes = array("supportedcontrol");
-        $result = $this->search("", "(objectclass=*)", 'base');
-        $result = $result->entries(true);
-        $this->_info("Obtained " . count($result['']['supportedcontrol']) . " supported controls");
-        $this->supported_controls = $result['']['supportedcontrol'];
-        return $result['']['supportedcontrol'];
+
+        if ($result = $this->search("", "(objectclass=*)", 'base')) {
+            $result  = $result->entries(true);
+            $control = $result['']['supportedcontrol'];
+        }
+        else {
+            $control = array();
+        }
+
+        $this->_info("Obtained " . count($control) . " supported controls");
+        $this->supported_controls = $control;
+        return $control;
     }
 
     private function _alert()
