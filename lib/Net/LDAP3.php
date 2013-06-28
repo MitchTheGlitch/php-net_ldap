@@ -1757,6 +1757,7 @@ class Net_LDAP3
         }
 
         $port = $this->config_get('port', 389);
+        $tls  = $this->config_get('use_tls', false);
 
         foreach ($this->config_get('hosts') as $host) {
             $this->_debug("C: Connect [$host:$port]");
@@ -1764,7 +1765,7 @@ class Net_LDAP3
             $_ldap_cfg = array(
                 'host'   => $host,
                 'port'   => $port,
-                'tls'    => false,
+                'tls'    => $tls,
                 'version' => 3,
                 'binddn' => $this->config_get('service_bind_dn'),
                 'bindpw' => $this->config_get('service_bind_pw')
