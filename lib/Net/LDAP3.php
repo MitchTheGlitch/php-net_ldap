@@ -250,7 +250,12 @@ class Net_LDAP3
             return;
         }
 
-        $result = $this->search("cn=config", "(&(objectclass=nsDS5Replica)(nsDS5ReplicaType=3))", "sub");
+        $result = $this->search($this->config_get('config_root_dn'), "(&(objectclass=nsDS5Replica)(nsDS5ReplicaType=3))", "sub");
+
+        if (!$result) {
+            $this->_debug("No replication configuration found.");
+            return;
+        }
 
         // Preserve the number of replicated databases we have, because the replication ID
         // can be calculated from the number of databases replicated, and the number of
@@ -308,6 +313,12 @@ class Net_LDAP3
             $result = $ldap->add_entry($new_replica_dn, $replica_attrs);
 
             $result = $ldap->search($replica_dn, "(objectclass=nsDS5ReplicationAgreement)", "sub");
+
+            if (!$result) {
+                $this->_error("Host $replica_host does not have any replication agreements");
+                continue;
+            }
+
             $entries = $result->entries(TRUE);
             $replica_agreement_tpl_dn = key($entries);
 
@@ -2060,7 +2071,7 @@ class Net_LDAP3
 
         $ldap->config_set('return_attributes', array('nsds5replicahost'));
 
-        $result = $ldap->search('cn=config', '(objectclass=nsds5replicationagreement)', 'sub');
+        $result = $ldap->search($this->config_get('config_root_dn'), '(objectclass=nsds5replicationagreement)', 'sub');
 
         if (!$result) {
             $this->_debug("No replicas configured");
@@ -2085,10 +2096,10 @@ class Net_LDAP3
             $ldap->config_set('host', $replica_host);
             $ldap->config_set('hosts', array($replica_host));
             $ldap->connect();
-            $ldap->bind("cn=Directory Manager", "MGWbMula_M2tFmK");
+            $ldap->bind($this->config_get('bind_dn'), $this->config_get('bind_pw'));
 
             $ldap->config_set('return_attributes', array('nsds5replicahost'));
-            $result = $ldap->search('cn=config', '(objectclass=nsds5replicationagreement)', 'sub');
+            $result = $ldap->search($this->config_get('config_root_dn'), '(objectclass=nsds5replicationagreement)', 'sub');
             if (!$result) {
                 $this->_debug("No replicas configured");
             }
