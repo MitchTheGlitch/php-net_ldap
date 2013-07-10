@@ -305,7 +305,7 @@ class Net_LDAP3
 
             $this->_debug("Would have added $new_replica_dn with attributes: " . var_export($replica_attrs, TRUE));
 
-            //$result = $ldap->add_entry($new_replica_dn, $replica_attrs);
+            $result = $ldap->add_entry($new_replica_dn, $replica_attrs);
 
             $result = $ldap->search($replica_dn, "(objectclass=nsDS5ReplicationAgreement)", "sub");
             $entries = $result->entries(TRUE);
