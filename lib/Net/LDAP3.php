@@ -1525,7 +1525,9 @@ class Net_LDAP3
             return null;
         }
 
-        $filter = '';
+        $operators = array('=', '>', '<', '>=', '<=');
+        $filter    = '';
+
         foreach ((array) $search['params'] as $field => $param) {
             switch ((string)$param['type']) {
                 case 'prefix':
@@ -1537,6 +1539,11 @@ class Net_LDAP3
                     $suffix = '';
                     break;
                 case 'exact':
+                case '=':
+                case '>':
+                case '<':
+                case '>=':
+                case '<=':
                     $prefix = '';
                     $suffix = '';
                     break;
@@ -1547,17 +1554,19 @@ class Net_LDAP3
                     break;
             }
 
+            $operator = $param['type'] && in_array($param['type'], $operators) ? $param['type'] : '=';
+
             if (is_array($param['value'])) {
                 $val_filter = array();
                 foreach ($param['value'] as $val) {
                     $value = self::_quote_string($val);
-                    $val_filter[] = "($field=$prefix" . $value . "$suffix)";
+                    $val_filter[] = "(" . $field . $operator . $prefix . $value . $suffix . ")";
                 }
                 $filter .= "(|" . implode($val_filter, '') . ")";
             }
             else {
                 $value = self::_quote_string($param['value']);
-                $filter .= "($field=$prefix" . $value . "$suffix)";
+                $filter .= "(" . $field . $operator . $prefix . $value . $suffix . ")";
             }
         }
 
