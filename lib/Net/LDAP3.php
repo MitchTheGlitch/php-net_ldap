@@ -1525,7 +1525,7 @@ class Net_LDAP3
             return null;
         }
 
-        $operators = array('=', '>', '<', '>=', '<=');
+        $operators = array('=', '~=', '>=', '<=');
         $filter    = '';
 
         foreach ((array) $search['params'] as $field => $param) {
@@ -1534,19 +1534,27 @@ class Net_LDAP3
                     $prefix = '';
                     $suffix = '*';
                     break;
+
                 case 'suffix':
                     $prefix = '*';
                     $suffix = '';
                     break;
+
                 case 'exact':
                 case '=':
-                case '>':
-                case '<':
+                case '~=':
                 case '>=':
                 case '<=':
                     $prefix = '';
                     $suffix = '';
                     break;
+
+                case 'exists':
+                    $prefix = '*';
+                    $suffix = '';
+                    $param['value'] = '';
+                    break;
+
                 case 'both':
                 default:
                     $prefix = '*';
