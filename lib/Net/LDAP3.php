@@ -878,7 +878,7 @@ class Net_LDAP3
             ")");
 
         if ($entries) {
-            $groups  = array_keys($entries->entries(TRUE));
+            $groups = array_keys($entries->entries(TRUE));
         }
 
         return $groups;
@@ -1097,6 +1097,10 @@ class Net_LDAP3
         }
 
         $entry = $this->search($dn);
+
+        if (!$entry) {
+            return array();
+        }
 
         $this->_debug("ENTRIES for \$dn $dn", $entry);
 
@@ -1778,13 +1782,13 @@ class Net_LDAP3
             $this->find_vlv_indexes_and_searches(true);
         }
 
-        if (empty($this->_vlv_indexes_and_searches) && !is_array($this->_vlv_indexes_and_searches)) {
+        if (empty($this->_vlv_indexes_and_searches)) {
             return false;
         }
 
         $this->_debug("Existing vlv index and search information", $this->_vlv_indexes_and_searches);
 
-        if (array_key_exists($base_dn, $this->_vlv_indexes_and_searches) && !empty($this->_vlv_indexes_and_searches[$base_dn])) {
+        if (!empty($this->_vlv_indexes_and_searches[$base_dn])) {
             $this->_debug("Found a VLV for base_dn: " . $base_dn);
             if ($this->_vlv_indexes_and_searches[$base_dn]['filter'] == $filter) {
                 $this->_debug("Filter matches");
@@ -1855,6 +1859,11 @@ class Net_LDAP3
                 0
             );
 
+        if ($search_result === false) {
+            $this->_debug("Search for '(objectclass=vlvsearch)' on '$config_root_dn' failed:".ldap_error($this->conn));
+            return;
+        }
+
         $vlv_searches = new Net_LDAP3_Result($this->conn, $config_root_dn, '(objectclass=vlvsearch)', 'sub', $search_result);
 
         if ($vlv_searches->count() < 1) {
@@ -1883,6 +1892,10 @@ class Net_LDAP3
                     0
                 );
 
+            if ($index_result === false) {
+                $this->_debug("Search for '(objectclass=vlvindex)' on '$vlv_search_dn' failed:".ldap_error($this->conn));
+                continue;
+            }
 
             $vlv_indexes = new Net_LDAP3_Result($this->conn, $vlv_search_dn, '(objectclass=vlvindex)', 'sub', $index_result);
             $vlv_indexes = $vlv_indexes->entries(true);
