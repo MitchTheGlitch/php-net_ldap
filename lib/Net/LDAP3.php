@@ -1777,37 +1777,34 @@ class Net_LDAP3
             return false;
         }
 
-        if (empty($this->_vlv_indexes_and_searches)) {
-            $this->_debug("No VLV information available yet, refreshing");
-            $this->find_vlv_indexes_and_searches(true);
-        }
+        $vlv_indexes = $this->find_vlv_indexes_and_searches();
 
-        if (empty($this->_vlv_indexes_and_searches)) {
+        if (empty($vlv_indexes)) {
             return false;
         }
 
-        $this->_debug("Existing vlv index and search information", $this->_vlv_indexes_and_searches);
+        $this->_debug("Existing vlv index and search information", $vlv_indexes);
 
-        if (!empty($this->_vlv_indexes_and_searches[$base_dn])) {
+        if (!empty($vlv_indexes[$base_dn])) {
             $this->_debug("Found a VLV for base_dn: " . $base_dn);
-            if ($this->_vlv_indexes_and_searches[$base_dn]['filter'] == $filter) {
+            if ($vlv_indexes[$base_dn]['filter'] == $filter) {
                 $this->_debug("Filter matches");
-                if ($this->_vlv_indexes_and_searches[$base_dn]['scope'] == $scope) {
+                if ($vlv_indexes[$base_dn]['scope'] == $scope) {
                     $this->_debug("Scope matches");
 
                     // Not passing any sort attributes means you don't care
                     if (!empty($sort_attrs)) {
-                        if (in_array($sort_attrs, $this->_vlv_indexes_and_searches[$base_dn]['sort'])) {
+                        if (in_array($sort_attrs, $vlv_indexes[$base_dn]['sort'])) {
                             return $sort_attrs;
                         } else {
                             return false;
                         }
                     } else {
-                        return $this->_vlv_indexes_and_searches[$base_dn]['sort'][0];
+                        return $vlv_indexes[$base_dn]['sort'][0];
                     }
 
                 } else {
-                    $this->_debug("Scope does not match. VLV: " . var_export($this->_vlv_indexes_and_searches[$base_dn]['scope'], true) . " while looking for " . var_export($scope, true));
+                    $this->_debug("Scope does not match. VLV: " . var_export($vlv_indexes[$base_dn]['scope'], true) . " while looking for " . var_export($scope, true));
                     return false;
                 }
             } else {
@@ -1826,7 +1823,7 @@ class Net_LDAP3
      */
     private function find_vlv_indexes_and_searches($refresh = false)
     {
-        if (!empty($this->config['vlv'])) {
+        if (isset($this->config['vlv'])) {
             if ($this->config['vlv'] === false) {
                 return array();
             } else {
@@ -1834,18 +1831,22 @@ class Net_LDAP3
             }
         }
 
-        if (!$this->_vlv_indexes_and_searches === null) {
+        if ($this->_vlv_indexes_and_searches !== null) {
             if (!$refresh) {
                 return $this->_vlv_indexes_and_searches;
             }
         }
 
-        $return_attributes = $this->return_attributes;
+        $this->_vlv_indexes_and_searches = array();
 
-        $config_root_dn = $this->config_get('config_root_dn', null);
+        $return_attributes = $this->return_attributes;
+        $config_root_dn    = $this->config_get('config_root_dn', null);
+
         if (empty($config_root_dn)) {
             return array();
         }
+
+        $this->_debug("No VLV information available yet, refreshing");
 
         $this->return_attributes = array('*');
 
@@ -1861,6 +1862,7 @@ class Net_LDAP3
 
         if ($search_result === false) {
             $this->_debug("Search for '(objectclass=vlvsearch)' on '$config_root_dn' failed:".ldap_error($this->conn));
+            $this->return_attributes = $return_attributes;
             return;
         }
 
@@ -1870,16 +1872,13 @@ class Net_LDAP3
             $this->_debug("Empty result from search for '(objectclass=vlvsearch)' on '$config_root_dn'");
             $this->return_attributes = $return_attributes;
             return;
-        } else {
-            $vlv_searches = $vlv_searches->entries(true);
         }
 
-        foreach ($vlv_searches as $vlv_search_dn => $vlv_search_attrs) {
-
+        foreach ($vlv_searches->entries(true) as $vlv_search_dn => $vlv_search_attrs) {
             // The attributes we are interested in are as follows:
             $_vlv_base_dn = $vlv_search_attrs['vlvbase'];
-            $_vlv_scope = $vlv_search_attrs['vlvscope'];
-            $_vlv_filter = $vlv_search_attrs['vlvfilter'];
+            $_vlv_scope   = $vlv_search_attrs['vlvscope'];
+            $_vlv_filter  = $vlv_search_attrs['vlvfilter'];
 
             // Multiple indexes may exist
             $index_result = ldap_search(
@@ -1900,8 +1899,6 @@ class Net_LDAP3
             $vlv_indexes = new Net_LDAP3_Result($this->conn, $vlv_search_dn, '(objectclass=vlvindex)', 'sub', $index_result);
             $vlv_indexes = $vlv_indexes->entries(true);
 
-            $this->_debug("find_vlv() vlvindex result: " . var_export($vlv_indexes, true));
-
             // Reset this one for each VLV search.
             $_vlv_sort = array();
 
@@ -1910,16 +1907,17 @@ class Net_LDAP3
             }
 
             $this->_vlv_indexes_and_searches[$_vlv_base_dn] = array(
-                    'scope' => self::scopeint2str($_vlv_scope),
-                    'filter' => $_vlv_filter,
-                    'sort' => $_vlv_sort,
-                );
-
+                'scope'  => self::scopeint2str($_vlv_scope),
+                'filter' => $_vlv_filter,
+                'sort'   => $_vlv_sort,
+            );
         }
 
         $this->return_attributes = $return_attributes;
 
         $this->_debug("Refreshed VLV: " . var_export($this->_vlv_indexes_and_searches, true));
+
+        return $this->_vlv_indexes_and_searches;
     }
 
     private function init_schema()
