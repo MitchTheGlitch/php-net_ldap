@@ -808,10 +808,17 @@ class Net_LDAP3
     {
         $this->_debug("entry_dn on subject $subject");
         $is_dn = ldap_explode_dn($subject, 1);
-        $this->_debug($is_dn ? "entry_dn is a dn" : "entry_dn is not a dn");
 
         if (is_array($is_dn) && array_key_exists("count", $is_dn) && $is_dn["count"] > 0) {
+            $this->_debug("$subject is a dn");
             return $subject;
+        }
+
+        $this->_debug("$subject is not a dn");
+
+        if (strlen($subject) < 16) {
+            $this->_debug("$subject is too short to be a unique identifier");
+            return;
         }
 
         $unique_attr = $this->config_get('unique_attribute', 'nsuniqueid');
