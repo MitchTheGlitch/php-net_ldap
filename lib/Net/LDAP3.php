@@ -930,17 +930,23 @@ class Net_LDAP3
     /**
      * Get a specific LDAP entry, identified by its DN
      *
-     * @param string $dn Record identifier
-     * @return array     Hash array
+     * @param string $dn         Record identifier
+     * @param array  $attributes Attributes to return
+     *
+     * @return array Hash array
      */
-    public function get_entry($dn)
+    public function get_entry($dn, $attributes = array())
     {
         $rec = null;
 
         if ($this->conn && $dn) {
             $this->_debug("C: Read [dn: $dn] [(objectclass=*)]");
 
-            if ($ldap_result = @ldap_read($this->conn, $dn, '(objectclass=*)', $this->return_attributes)) {
+            if (empty($attributes)) {
+                $attributes = $this->return_attributes;
+            }
+
+            if ($ldap_result = @ldap_read($this->conn, $dn, '(objectclass=*)', $attributes)) {
                 $this->_debug("S: OK");
 
                 if ($entry = ldap_first_entry($this->conn, $ldap_result)) {
@@ -1077,61 +1083,43 @@ class Net_LDAP3
         return $entry_dn;
     }
 
-    public function list_entries($base_dn, $filter = '(objectclass=*)', $scope = 'sub', $sort = null)
-    {
-        $search = $this->search($base_dn, $filter, $scope, $sort);
-
-        if (!$search) {
-            $this->_debug("Net_LDAP3: Search did not succeed!");
-            return false;
-        }
-
-        return $this->result;
-
-    }
-
     public function list_group_members($dn, $entry = null, $recurse = true)
     {
-        $group_members = array();
+        $this->_debug("Called list_group_members(" . $dn . ")");
 
         if (is_array($entry) && in_array('objectclass', $entry)) {
             if (!in_array(array('groupofnames', 'groupofuniquenames', 'groupofurls'), $entry['objectclass'])) {
-                $this->_debug("Called _list_groups_members on a non-group!");
-            }
-            else {
-                $this->_debug("Called list_group_members(" . $dn . ")");
+                $this->_debug("Called list_group_members on a non-group!");
+                return array();
             }
         }
+        else {
+            $entry = $this->get_entry($dn, array('member', 'uniquemember', 'memberurl', 'objectclass'));
 
-        $entry = $this->search($dn);
-
-        if (!$entry) {
-            return array();
-        }
-
-        $this->_debug("ENTRIES for \$dn $dn", $entry);
-
-        foreach ($entry[$dn] as $attribute => $value) {
-            if ($attribute == "objectclass") {
-                foreach ($value as $objectclass) {
-                    switch (strtolower($objectclass)) {
-                        case "groupofnames":
-                        case "kolabgroupofnames":
-                            $group_members = array_merge($group_members, $this->_list_group_member($dn, $entry[$dn]['member'], $recurse));
-                            break;
-                        case "groupofuniquenames":
-                        case "kolabgroupofuniquenames":
-                            $group_members = array_merge($group_members, $this->_list_group_uniquemember($dn, $entry[$dn]['uniquemember'], $recurse));
-                            break;
-                        case "groupofurls":
-                            $group_members = array_merge($group_members, $this->_list_group_memberurl($dn, $entry[$dn]['memberurl'], $recurse));
-                            break;
-                    }
-                }
+            if (!$entry) {
+                return array();
             }
         }
 
-        return array_filter($group_members);
+        $group_members = array();
+
+        foreach ((array)$entry['objectclass'] as $objectclass) {
+            switch (strtolower($objectclass)) {
+                case "groupofnames":
+                case "kolabgroupofnames":
+                    $group_members = array_merge($group_members, $this->list_group_member($dn, $entry['member'], $recurse));
+                    break;
+                case "groupofuniquenames":
+                case "kolabgroupofuniquenames":
+                    $group_members = array_merge($group_members, $this->list_group_uniquemember($dn, $entry['uniquemember'], $recurse));
+                    break;
+                case "groupofurls":
+                    $group_members = array_merge($group_members, $this->list_group_memberurl($dn, $entry['memberurl'], $recurse));
+                    break;
+            }
+        }
+
+        return array_values(array_filter($group_members));
     }
 
     public function modify_entry($subject_dn, $old_attrs, $new_attrs)
@@ -1986,30 +1974,28 @@ class Net_LDAP3
 
     private function list_group_member($dn, $members, $recurse = true)
     {
-        $this->_debug("Called _list_group_member(" . $dn . ")");
+        $this->_debug("Called list_group_member(" . $dn . ")");
 
+        $members       = (array) $members;
         $group_members = array();
 
-        $members = (array)($members);
-
-        if (empty($members)) {
-            return $group_members;
-        }
+        // remove possible 'count' item
+        unset($members['count']);
 
         // Use the member attributes to return an array of member ldap objects
         // NOTE that the member attribute is supposed to contain a DN
         foreach ($members as $member) {
-            $member_entry = $this->_read($member, '(objectclass=*)');
+            $member_entry = $this->get_entry($member, array('member', 'uniquemember', 'memberurl', 'objectclass'));
 
             if (empty($member_entry)) {
                 continue;
             }
 
-            $group_members[$member] = array_pop($member_entry);
+            $group_members[$member] = $member;
 
             if ($recurse) {
                 // Nested groups
-                $group_group_members = $this->_list_group_members($member, $member_entry);
+                $group_group_members = $this->list_group_members($member, $member_entry);
                 if ($group_group_members) {
                     $group_members = array_merge($group_group_members, $group_members);
                 }
@@ -2021,34 +2007,26 @@ class Net_LDAP3
 
     private function list_group_uniquemember($dn, $uniquemembers, $recurse = true)
     {
-        $this->_debug("Called _list_group_uniquemember(" . $dn . ")", $entry);
-
-        // Use the member attributes to return an array of member ldap objects
-        // NOTE that the member attribute is supposed to contain a DN
-        $group_members = array();
-        if (empty($uniquemembers)) {
-            return $group_members;
-        }
+        $this->_debug("Called list_group_uniquemember(" . $dn . ")", $entry);
 
         $uniquemembers = (array)($uniquemembers);
+        $group_members = array();
 
-        if (is_string($uniquemembers)) {
-            $this->_debug("uniquemember for entry is not an array");
-            $uniquemembers = (array)($uniquemembers);
-        }
+        // remove possible 'count' item
+        unset($uniquemembers['count']);
 
         foreach ($uniquemembers as $member) {
-            $member_entry = $this->_read($member, '(objectclass=*)');
+            $member_entry = $this->get_entry($member, array('member', 'uniquemember', 'memberurl', 'objectclass'));
 
             if (empty($member_entry)) {
                 continue;
             }
 
-            $group_members[$member] = array_pop($member_entry);
+            $group_members[$member] = $member;
 
             if ($recurse) {
                 // Nested groups
-                $group_group_members = $this->_list_group_members($member, $member_entry);
+                $group_group_members = $this->list_group_members($member, $member_entry);
                 if ($group_group_members) {
                     $group_members = array_merge($group_group_members, $group_members);
                 }
@@ -2060,31 +2038,40 @@ class Net_LDAP3
 
     private function list_group_memberurl($dn, $memberurls, $recurse = true)
     {
-        $this->_debug("Called _list_group_memberurl(" . $dn . ")");
-
-        // Use the member attributes to return an array of member ldap objects
-        // NOTE that the member attribute is supposed to contain a DN
+        $this->_debug("Called list_group_memberurl(" . $dn . ")");
 
         $group_members = array();
+        $memberurls    = (array) $memberurls;
 
-        foreach ((array)($memberurls) as $url) {
-            $ldap_uri_components = $this->_parse_memberurl($url);
+        // remove possible 'count' item
+        unset($memberurls['count']);
 
-            $entries = $this->search($ldap_uri_components[3], $ldap_uri_components[6]);
+        $return_attributes = $this->return_attributes;
+        $this->return_attributes = array('member', 'uniquemember', 'memberurl', 'objectclass');
 
-            foreach ($entries as $entry_dn => $_entry) {
-                $group_members[$entry_dn] = $_entry;
+        foreach ($memberurls as $url) {
+            $ldap_uri = $this->parse_memberurl($url);
+            $result   = $this->search($ldap_uri[3], $ldap_uri[6]);
+
+            if (!$result) {
+                continue;
+            }
+
+            foreach ($result->entries(true) as $entry_dn => $_entry) {
+                $group_members[$entry_dn] = $entry_dn;
                 $this->_debug("Found " . $entry_dn);
 
                 if ($recurse) {
                     // Nested group
-                    $group_group_members = $this->_list_group_members($entry_dn, $_entry);
+                    $group_group_members = $this->list_group_members($entry_dn, $_entry);
                     if ($group_group_members) {
                         $group_members = array_merge($group_members, $group_group_members);
                     }
                 }
             }
         }
+
+        $this->return_attributes = $return_attributes;
 
         return array_filter($group_members);
     }
