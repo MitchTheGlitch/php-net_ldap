@@ -308,9 +308,14 @@ class Net_LDAP3
 
             $new_replica_dn = 'cn=replica,cn="' . $domain_root_dn . '",cn=mapping tree,cn=config';
 
-            $this->_debug("Would have added $new_replica_dn with attributes: " . var_export($replica_attrs, TRUE));
+            $this->_debug("Adding $new_replica_dn to $replica_host with attributes: " . var_export($replica_attrs, TRUE));
 
             $result = $ldap->add_entry($new_replica_dn, $replica_attrs);
+
+            if (!$result) {
+                $this->_error("Could not add replication configuration to database for $domain_root_dn on $replica_host");
+                continue;
+            }
 
             $result = $ldap->search($replica_dn, "(objectclass=nsDS5ReplicationAgreement)", "sub");
 
@@ -329,7 +334,7 @@ class Net_LDAP3
                 if ($replicate_to_host == $replica_host)
                     continue;
 
-                $this->_debug("About to add a replication agreement for $domain_root_dn to $replicate_to_host on " . $ldap->config_get('host'));
+                $this->_debug("Adding a replication agreement for $domain_root_dn to $replicate_to_host on " . $ldap->config_get('host'));
 
                 $attrs = Array(
                         'objectclass',
@@ -346,10 +351,12 @@ class Net_LDAP3
                 $replica_agreement_attrs['nsDS5ReplicaRoot'] = $domain_root_dn;
                 $replica_agreement_dn = "cn=" . $replica_agreement_attrs['cn'] . "," . $new_replica_dn;
 
-                $this->_debug("Would have added $replica_agreement_dn with attributes: " . var_export($replica_agreement_attrs, TRUE));
+                $this->_debug("Adding $replica_agreement_dn to $replica_host with attributes: " . var_export($replica_agreement_attrs, TRUE));
 
                 $result = $ldap->add_entry($replica_agreement_dn, $replica_agreement_attrs);
-
+                if (!$result) {
+                    $this->_error("Failed adding $replica_agreement_dn");
+                }
             }
         }
 
@@ -816,8 +823,8 @@ class Net_LDAP3
 
         $this->_debug("$subject is not a dn");
 
-        if (strlen($subject) < 16) {
-            $this->_debug("$subject is too short to be a unique identifier");
+        if (strlen($subject) < 32 || preg_match('/[^a-fA-F0-9-]/', $subject)) {
+            $this->_debug("$subject is not a unique identifier");
             return;
         }
 
@@ -1156,7 +1163,6 @@ class Net_LDAP3
         // Compare each attribute value of the old attrs with the corresponding value
         // in the new attrs, if any.
         foreach ($old_attrs as $attr => $old_attr_value) {
-
             if (is_array($old_attr_value)) {
                 if (count($old_attr_value) == 1) {
                     $old_attrs[$attr] = $old_attr_value[0];
@@ -1165,7 +1171,6 @@ class Net_LDAP3
             }
 
             if (array_key_exists($attr, $new_attrs)) {
-
                 if (is_array($new_attrs[$attr])) {
                     if (count($new_attrs[$attr]) == 1) {
                         $new_attrs[$attr] = $new_attrs[$attr][0];
@@ -1243,7 +1248,7 @@ class Net_LDAP3
                         }
 
                     } else {
-                        if (empty($new_attrs[$attr])) {
+                        if (!isset($new_attrs[$attr]) || $new_attrs[$attr] === '' || (is_array($new_attrs[$attr]) && empty($new_attrs[$attr]))) {
                             switch ($attr) {
                                 case "userpassword":
                                     break;
@@ -1276,7 +1281,6 @@ class Net_LDAP3
             }
 
             if (array_key_exists($attr, $old_attrs)) {
-
                 if (is_array($old_attrs[$attr])) {
                     if (count($old_attrs[$attr]) == 1) {
                         $old_attrs[$attr] = $old_attrs[$attr][0];
@@ -1293,7 +1297,7 @@ class Net_LDAP3
                     $_sort2 = false;
                 }
 
-                if (empty($value)) {
+                if ($value === null || $value === '' || (is_array($value) && empty($value))) {
                     if (!array_key_exists($attr, $mod_array['del'])) {
                         switch ($attr) {
                             case 'userpassword':
@@ -1821,7 +1825,8 @@ class Net_LDAP3
         if (isset($this->config['vlv'])) {
             if ($this->config['vlv'] === false) {
                 return array();
-            } else {
+            }
+            else if (is_array($this->config['vlv'])) {
                 return $this->config['vlv'];
             }
         }
