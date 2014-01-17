@@ -677,11 +677,36 @@ class Net_LDAP3
 
         if (ldap_delete($this->conn, $entry_dn) === false) {
             $this->_debug("LDAP: S: " . ldap_error($this->conn));
-            $this->_debug("LDAP: Delete failed. " . ldap_error($this->conn));
             return false;
         }
 
         $this->_debug("LDAP: S: OK");
+
+        return true;
+    }
+
+    /**
+     * Deletes specified entry and all entries in the tree
+     */
+    public function delete_entry_recursive($entry_dn)
+    {
+        // searching for sub entries, but not scope sub, just one level
+        $this->config_set('return_attributes', array('entrydn'));
+        $result = $this->search($entry_dn, '(objectclass=*)', 'one');
+
+        if ($result) {
+            $entries = $result->entries(true);
+
+            foreach (array_keys($entries) as $sub_dn) {
+                if (!$this->delete_entry_recursive($sub_dn)) {
+                    return false;
+                }
+            }
+        }
+
+        if (!$this->delete_entry($entry_dn)) {
+            return false;
+        }
 
         return true;
     }
@@ -1344,7 +1369,6 @@ class Net_LDAP3
         if ($result) {
             return $mod_array;
         }
-
     }
 
     /**
