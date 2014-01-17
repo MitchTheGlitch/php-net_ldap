@@ -1187,7 +1187,7 @@ class Net_LDAP3
                     $_sort2 = false;
                 }
 
-                if (!($new_attrs[$attr] === $old_attr_value) && !($_sort1 === $_sort2)) {
+                if ($new_attrs[$attr] !== $old_attr_value && $_sort1 !== $_sort2) {
                     $this->_debug("Attribute $attr changed from " . var_export($old_attr_value, true) . " to " . var_export($new_attrs[$attr], true));
                     if ($attr === $rdn_attr) {
                         $this->_debug("This attribute is the RDN attribute. Let's see if it is multi-valued, and if the original still exists in the new value.");
@@ -1209,14 +1209,13 @@ class Net_LDAP3
 
                                     $this->_debug("Adding to delete attribute $attr values:" . implode(', ', $_attr_to_remove));
 
-                                    $mod_array['delete'][$attr] = $_attr_to_remove;
+                                    $mod_array['del'][$attr] = $_attr_to_remove;
 
                                     if (strtolower($new_attrs[$attr]) !== strtolower($rdn_attr_value)) {
                                         $this->_debug("new attrs is not the same as the old rdn value, issuing a rename");
                                         $mod_array['rename']['dn'] = $subject_dn;
                                         $mod_array['rename']['new_rdn'] = $rdn_attr . '=' . $new_attrs[$attr][0];
                                     }
-
                                 } else {
                                     $this->_debug("new attrs is not the same as any of the old rdn value, issuing a full rename");
                                     $mod_array['rename']['dn'] = $subject_dn;
@@ -1225,13 +1224,13 @@ class Net_LDAP3
                             } else {
                                 // TODO: See if the rdn attr. value is still in $new_attrs[$attr]
                                 if (in_array($old_attrs[$attr][0], $new_attrs[$attr])) {
-                                    $this->_debug("Simply replacing attr $attr as rnd attr value is preserved.");
+                                    $this->_debug("Simply replacing attr $attr as rdn attr value is preserved.");
                                     $mod_array['replace'][$attr] = $new_attrs[$attr];
                                 } else {
                                     // TODO: This fails.
                                     $mod_array['rename']['dn'] = $subject_dn;
                                     $mod_array['rename']['new_rdn'] = $rdn_attr . '=' . $new_attrs[$attr][0];
-                                    $mod_array['delete'][$attr] = $old_attrs[$attr][0];
+                                    $mod_array['del'][$attr] = $old_attrs[$attr][0];
                                 }
                             }
                         } else {
@@ -2226,7 +2225,6 @@ class Net_LDAP3
                 return false;
             }
         }
-
 
         if (is_array($attributes['add']) && !empty($attributes['add'])) {
             $this->_debug("LDAP: C: Mod-Add $subject_dn: " . json_encode($attributes['add']));
