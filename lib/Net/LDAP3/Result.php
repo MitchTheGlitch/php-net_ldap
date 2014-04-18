@@ -4,11 +4,10 @@
  +-----------------------------------------------------------------------+
  | Net/LDAP3/Result.php                                                  |
  |                                                                       |
- | Based on rcube_ldap_result.php created by the Roundcube Webmail       |
- | client development team.                                              |
+ | Based on code created by the Roundcube Webmail team.                  |
  |                                                                       |
- | Copyright (C) 2006-2012, The Roundcube Dev Team                       |
- | Copyright (C) 2012, Kolab Systems AG                                  |
+ | Copyright (C) 2006-2014, The Roundcube Dev Team                       |
+ | Copyright (C) 2012-2014, Kolab Systems AG                             |
  |                                                                       |
  | Licensed under the GNU General Public License version 3 or            |
  | any later version with exceptions for plugins.                        |
@@ -35,20 +34,26 @@ class Net_LDAP3_Result implements Iterator
     protected $filter;
     protected $scope;
 
-    private $count = null;
-    private $current = null;
+    private $count;
+    private $current;
     private $iteratorkey = 0;
 
     /**
+     * Default constructor
      *
+     * @param resource $conn      LDAP link identifier
+     * @param string   $base_dn   Base DN used to get this result
+     * @param string   $filter    Filter query used to get this result
+     * @param string   $scope     Scope of the result
+     * @param resource $result    LDAP result entry identifier
      */
     function __construct($conn, $base_dn, $filter, $scope, $result)
     {
-        $this->conn = $conn;
+        $this->conn    = $conn;
         $this->base_dn = $base_dn;
-        $this->filter = $filter;
-        $this->scope = $scope;
-        $this->result = $result;
+        $this->filter  = $filter;
+        $this->scope   = $scope;
+        $this->result  = $result;
     }
 
     public function get($property, $default = null)
@@ -103,7 +108,10 @@ class Net_LDAP3_Result implements Iterator
 
     function current()
     {
-        return ldap_get_attributes($this->conn, $this->current);
+        $attrib       = ldap_get_attributes($this->conn, $this->current);
+        $attrib['dn'] = ldap_get_dn($this->conn, $this->current);
+
+        return $attrib;
     }
 
     function key()
@@ -129,4 +137,3 @@ class Net_LDAP3_Result implements Iterator
     }
 
 }
-
