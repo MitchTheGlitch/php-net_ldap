@@ -1490,7 +1490,7 @@ class Net_LDAP3
             }
             // ...or by fetching all records dn and count them
             else if (!function_exists('ldap_parse_virtuallist_control')) {
-                $vlv_count = $this->search($base_dn, $filter, $scope, array('dn'), $prop, true);
+                $vlv_count = $this->search($base_dn, $filter, $scope, array('dn'), $props, true);
             }
 
             $this->vlv_active = $this->_vlv_set_controls($sort, $this->list_page, $this->page_size,
@@ -1845,7 +1845,8 @@ class Net_LDAP3
 
                     // Not passing any sort attributes means you don't care
                     if (!empty($sort_attrs)) {
-                        if (in_array($sort_attrs, $vlv_indexes[$base_dn]['sort'])) {
+                        $sort_attrs = (array) $sort_attrs;
+                        if (count(array_intersect($sort_attrs, $vlv_indexes[$base_dn]['sort'])) == count($sort_attrs)) {
                             return $sort_attrs;
                         }
                         else {
@@ -2596,7 +2597,8 @@ class Net_LDAP3
             'iscritical' => true
         );
 
-        $this->_debug("C: set controls sort=" . join(' ', unpack('H'.(strlen($sort_ctrl['value'])*2), $sort_ctrl['value'])) . " ($sort[0]);"
+        $this->_debug("C: set controls sort=" . join(' ', unpack('H'.(strlen($sort_ctrl['value'])*2), $sort_ctrl['value']))
+            . " (" . implode(',', (array) $sort) . ");"
             . " vlv=" . join(' ', (unpack('H'.(strlen($vlv_ctrl['value'])*2), $vlv_ctrl['value']))) . " ($offset/$page_size)");
 
         if (!ldap_set_option($this->conn, LDAP_OPT_SERVER_CONTROLS, array($sort_ctrl, $vlv_ctrl))) {
