@@ -1837,41 +1837,40 @@ class Net_LDAP3
 
         $filter = strtolower($filter);
 
-        if (!empty($vlv_indexes[$base_dn])) {
-            $this->_debug("Found a VLV for base_dn: " . $base_dn);
-            if ($vlv_indexes[$base_dn]['filter'] == $filter) {
-                if ($vlv_indexes[$base_dn]['scope'] == $scope) {
-                    $this->_debug("Scope and filter matches");
+        foreach ($vlv_indexes as $vlv_index) {
+            if (!empty($vlv_index[$base_dn])) {
+                $this->_debug("Found a VLV for base_dn: " . $base_dn);
+                if ($vlv_index[$base_dn]['filter'] == $filter) {
+                    if ($vlv_index[$base_dn]['scope'] == $scope) {
+                        $this->_debug("Scope and filter matches");
 
-                    // Not passing any sort attributes means you don't care
-                    if (!empty($sort_attrs)) {
-                        $sort_attrs = (array) $sort_attrs;
-                        if (count(array_intersect($sort_attrs, $vlv_indexes[$base_dn]['sort'])) == count($sort_attrs)) {
-                            return $sort_attrs;
+                        // Not passing any sort attributes means you don't care
+                        if (!empty($sort_attrs)) {
+                            $sort_attrs = (array) $sort_attrs;
+                            if (count(array_intersect($sort_attrs, $vlv_index[$base_dn]['sort'])) == count($sort_attrs)) {
+                                return $sort_attrs;
+                            }
+                            else {
+                                return false;
+                            }
                         }
                         else {
-                            return false;
+                            return $vlv_index[$base_dn]['sort'][0];
                         }
                     }
                     else {
-                        return $vlv_indexes[$base_dn]['sort'][0];
+                        $this->_debug("Scope does not match. VLV: " . var_export($vlv_index[$base_dn]['scope'], true)
+                            . " while looking for " . var_export($scope, true));
+                        return false;
                     }
                 }
                 else {
-                    $this->_debug("Scope does not match. VLV: " . var_export($vlv_indexes[$base_dn]['scope'], true)
-                        . " while looking for " . var_export($scope, true));
-                    return false;
+                    $this->_debug("Filter does not match");
                 }
             }
-            else {
-                $this->_debug("Filter does not match");
-                return false;
-            }
         }
-        else {
-            $this->_debug("No VLV for base dn", $base_dn);
-            return false;
-        }
+
+        return false;
     }
 
     /**
@@ -1948,11 +1947,13 @@ class Net_LDAP3
                 $_vlv_sort[] = explode(' ', $vlv_index_attrs['vlvsort']);
             }
 
-            $this->_vlv_indexes_and_searches[$_vlv_base_dn] = array(
-                'scope'  => self::scopeint2str($_vlv_scope),
-                'filter' => strtolower($_vlv_filter),
-                'sort'   => $_vlv_sort,
-            );
+            $this->_vlv_indexes_and_searches[] = array(
+                    $_vlv_base_dn => array(
+                            'scope'  => self::scopeint2str($_vlv_scope),
+                            'filter' => strtolower($_vlv_filter),
+                            'sort'   => $_vlv_sort,
+                        ),
+                );
         }
 
         // cache this
