@@ -742,9 +742,14 @@ class Net_LDAP3
             '"*"',
         );
 
-        $command = implode(' ', $command);
+        // remove password from debug log
+        $command_debug     = $command;
+        $command_debug[11] = '*';
 
-        $this->_debug("LDAP: Executing command: $command");
+        $command       = implode(' ', $command);
+        $command_debug = implode(' ', $command_debug);
+
+        $this->_debug("LDAP: Executing command: $command_debug");
 
         exec($command, $output, $return_code);
 
