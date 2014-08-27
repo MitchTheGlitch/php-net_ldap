@@ -992,7 +992,9 @@ class Net_LDAP3
 
             $result = $ldap->search($root_dn, '(objectclass=nsds5replicationagreement)', 'sub', array('nsds5replicahost'));
             if (!$result) {
-                $this->_debug("No replicas configured");
+                $this->_debug("No replicas configured on $replica_host");
+                $ldap->close();
+                continue;
             }
 
             foreach ($result->entries(true) as $dn => $attrs) {
