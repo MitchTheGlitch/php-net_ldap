@@ -689,15 +689,16 @@ class Net_LDAP3
             'entryLevelRights' => array(),
         );
 
-        $output   = array();
         $entry_dn = $this->entry_dn($subject);
 
         if (!$entry_dn) {
             $entry_dn = $this->config_get($subject . "_base_dn");
         }
+
         if (!$entry_dn) {
             $entry_dn = $this->config_get("base_dn");
         }
+
         if (!$entry_dn) {
             $entry_dn = $this->config_get("root_dn");
         }
@@ -717,30 +718,64 @@ class Net_LDAP3
             return null;
         }
 
-        $command = array(
-            $moz_ldapsearch,
-            '-x',
-            '-h',
-            $this->_ldap_server,
-            '-p',
-            $this->_ldap_port,
-            '-b',
-            escapeshellarg($entry_dn),
-            '-D',
-            escapeshellarg($this->_current_bind_dn),
-            '-w',
-            escapeshellarg($this->_current_bind_pw),
-            '-J',
-            escapeshellarg(implode(':', array(
-                $effective_rights_control_oid,          // OID
-                'true',                                 // Criticality
-                'dn:' . $this->_current_bind_dn // User DN
-            ))),
-            '-s',
-            'base',
-            '"(objectclass=*)"',
-            '"*"',
-        );
+        $output = array();
+        $command = Array(
+                $moz_ldapsearch,
+                '-x',
+                '-h',
+                $this->_ldap_server,
+                '-p',
+                $this->_ldap_port,
+                '-b',
+                escapeshellarg($entry_dn),
+                '-s',
+                'base',
+                '-D',
+                escapeshellarg($this->_current_bind_dn),
+                '-w',
+                escapeshellarg($this->_current_bind_pw)
+            );
+
+        if ($this->vendor_name() == "Oracle Corporation") {
+            // For Oracle DSEE
+            $command[] = "-J";
+            $command[] = escapeshellarg(
+                    implode(
+                            ':',
+                            Array(
+                                    $effective_rights_control_oid,          // OID
+                                    'true'                                  // Criticality
+                                )
+                        )
+                );
+            $command[] = "-c";
+            $command[] = escapeshellarg(
+                    'dn:' . $this->_current_bind_dn
+                );
+
+        } else {
+            // For 389 DS:
+            $command[] = "-J";
+            $command[] = escapeshellarg(
+                    implode(
+                            ':',
+                            Array(
+                                    $effective_rights_control_oid,          // OID
+                                    'true',                                 // Criticality
+                                    'dn:' . $this->_current_bind_dn         // User DN
+                                )
+                        )
+                );
+        }
+
+        // For both
+        $command[] = '"(objectclass=*)"';
+        $command[] = '"*"';
+
+        if ($this->vendor_name() == "Oracle Corporation") {
+            // Oracle DSEE
+            $command[] = 'aclRights';
+        }
 
         // remove password from debug log
         $command_debug     = $command;
@@ -771,24 +806,46 @@ class Net_LDAP3
             }
         }
 
-        foreach ($lines as $line) {
-            $line_components = explode(':', $line);
-            $attribute_name  = array_shift($line_components);
-            $attribute_value = trim(implode(':', $line_components));
+        if ($this->vendor_name() == "Oracle Corporation") {
+            // Example for attribute level rights:
+            // aclRights;attributeLevel;$attr:$right:$bool,$right:$bool
+            // Example for entry level rights:
+            // aclRights;entryLevel: add:1,delete:1,read:1,write:1,proxy:1
+            foreach ($lines as $line) {
+                $line_components = explode(':', $line);
+                $attribute_name = explode(';', array_shift($line_components));
 
-            switch ($attribute_name) {
-                case "attributeLevelRights":
-                    $attributes[$attribute_name] = $this->parse_attribute_level_rights($attribute_value);
-                    break;
-                case "dn":
-                    $attributes[$attribute_name] = $attribute_value;
-                    break;
-                case "entryLevelRights":
-                    $attributes[$attribute_name] = $this->parse_entry_level_rights($attribute_value);
-                    break;
+                switch ($attribute_name[0]) {
+                    case "aclRights":
+                        $this->parse_aclrights($attributes, $line);
+                        break;
+                    case "dn":
+                        $attributes[$attribute_name[0]] = trim(implode(';', $line_components));
+                        break;
+                    default:
+                        break;
+                }
+            }
 
-                default:
-                    break;
+        } else {
+            foreach ($lines as $line) {
+                $line_components = explode(':', $line);
+                $attribute_name  = array_shift($line_components);
+                $attribute_value = trim(implode(':', $line_components));
+
+                switch ($attribute_name) {
+                    case "attributeLevelRights":
+                        $attributes[$attribute_name] = $this->parse_attribute_level_rights($attribute_value);
+                        break;
+                    case "dn":
+                        $attributes[$attribute_name] = $attribute_value;
+                        break;
+                    case "entryLevelRights":
+                        $attributes[$attribute_name] = $this->parse_entry_level_rights($attribute_value);
+                        break;
+                    default:
+                        break;
+                }
             }
         }
 
@@ -2233,6 +2290,45 @@ class Net_LDAP3
         return true;
     }
 
+    private function parse_aclrights(&$attributes, $attribute_value) {
+        $components = explode(':', $rights);
+        $_acl_target = array_shift($components);
+        $_acl_value = trim(implode(':', $components));
+
+        $_acl_components = explode(';', $_acl_target);
+
+        switch ($_acl_components[1]) {
+            case "entryLevel":
+                $attributes['entryLevelRights'] = Array();
+                $_acl_value = explode(',', $_acl_value);
+
+                foreach ($_acl_value as $right) {
+                    list($method, $bool) = explode(':', $right);
+                    if ($bool == "1" && !in_array($method, $attributes['entryLevelRights'])) {
+                        $attributes['entryLevelRights'][] = $method;
+                    }
+                }
+
+                break;
+
+            case "attributeLevel":
+                $attributes['attributeLevelRights'][$_acl_components[2]] = Array();
+                $_acl_value = explode(',', $_acl_value);
+
+                foreach ($_acl_value as $right) {
+                    list($method, $bool) = explode(':', $right);
+                    if ($bool == "1" && !in_array($method, $attributes['attributeLevelRights'][$_acl_components[2]])) {
+                        $attributes['attributeLevelRights'][$_acl_components[2]][] = $method;
+                    }
+                }
+
+                break;
+
+            default:
+                break;
+        }
+    }
+
     private function parse_attribute_level_rights($attribute_value)
     {
         $attribute_value  = str_replace(", ", ",", $attribute_value);
@@ -2293,6 +2389,33 @@ class Net_LDAP3
         $this->supported_controls = $control;
 
         return $control;
+    }
+
+    private function vendor_name()
+    {
+        if (!empty($this->vendor_name)) {
+            return $this->vendor_name;
+        }
+
+        $this->_info("Obtaining LDAP server vendor name");
+
+        if ($result = $this->search('', '(objectclass=*)', 'base', array('vendorname'))) {
+            $result  = $result->entries(true);
+            $name = $result['']['vendorname'];
+        }
+        else {
+            $name = false;
+        }
+
+        if ($name !== false) {
+            $this->_info("Vendor name is $name");
+        } else {
+            $this->_info("No vendor name!");
+        }
+
+        $this->vendor = $name;
+
+        return $name;
     }
 
     protected function _alert()
