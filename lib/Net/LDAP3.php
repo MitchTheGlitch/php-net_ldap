@@ -2291,7 +2291,7 @@ class Net_LDAP3
     }
 
     private function parse_aclrights(&$attributes, $attribute_value) {
-        $components = explode(':', $rights);
+        $components = explode(':', $attribute_value);
         $_acl_target = array_shift($components);
         $_acl_value = trim(implode(':', $components));
 
