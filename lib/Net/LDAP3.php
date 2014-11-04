@@ -1068,7 +1068,7 @@ class Net_LDAP3
         return $replica_hosts;
     }
 
-    public function login($username, $password, $domain = null)
+    public function login($username, $password, $domain = null, &$attributes = null)
     {
         $this->_debug("Net_LDAP3::login(\$username = '" . $username . "', \$password = '****', \$domain = '" . $domain . "')");
 
@@ -1100,6 +1100,12 @@ class Net_LDAP3
             if (!$bound) {
                 $this->_error("Could not bind with " . $entry_dn);
                 return null;
+            }
+
+            // fetch user attributes if requested
+            if (!empty($attributes)) {
+                $attributes = $this->get_entry($entry_dn, $attributes);
+                $attributes = self::normalize_entry($attributes, true);
             }
 
             return $entry_dn;
@@ -1149,7 +1155,7 @@ class Net_LDAP3
 
         $this->_debug("Net::LDAP3::login() actual filter: " . $filter);
 
-        $result = $this->search($base_dn, $filter, 'sub');
+        $result = $this->search($base_dn, $filter, 'sub', $attributes);
 
         if (!$result) {
             $this->_debug("Could not search $base_dn with $filter");
@@ -1165,15 +1171,19 @@ class Net_LDAP3
             return null;
         }
 
-        $entries  = $result->entries();
-        $entry    = self::normalize_result($entries);
-        $entry_dn = key($entry);
+        $entries  = $result->entries(true);
+        $entry_dn = key($entries);
 
         $bound = $this->bind($entry_dn, $password);
 
         if (!$bound) {
             $this->_debug("Could not bind with " . $entry_dn);
             return null;
+        }
+
+        // replace attributes list with key-value data
+        if (!empty($attributes)) {
+            $attributes = $entries[$entry_dn];
         }
 
         return $entry_dn;
@@ -1747,16 +1757,21 @@ class Net_LDAP3
      * Turn an LDAP entry into a regular PHP array with attributes as keys.
      *
      * @param array $entry Attributes array as retrieved from ldap_get_attributes() or ldap_get_entries()
+     * @param bool  $flat  Convert one-element-array values into strings
      *
      * @return array Hash array with attributes as keys
      */
-    public static function normalize_entry($entry)
+    public static function normalize_entry($entry, $flat = false)
     {
         $rec = array();
         for ($i=0; $i < $entry['count']; $i++) {
             $attr = $entry[$i];
             for ($j=0; $j < $entry[$attr]['count']; $j++) {
                 $rec[$attr][$j] = $entry[$attr][$j];
+            }
+
+            if ($flat && count($rec[$attr]) == 1) {
+                $rec[$attr] = $rec[$attr][0];
             }
         }
 
@@ -1775,34 +1790,19 @@ class Net_LDAP3
         $result = array();
 
         for ($x = 0; $x < $_result['count']; $x++) {
-            $dn = $_result[$x]['dn'];
-            $result[$dn] = array();
-            for ($y = 0; $y < $_result[$x]['count']; $y++) {
-                $attr = $_result[$x][$y];
-                if ($_result[$x][$attr]['count'] == 1) {
-                    switch ($attr) {
-                        case 'objectclass':
-                            $result[$dn][$attr] = array(strtolower($_result[$x][$attr][0]));
-                            break;
-                        default:
-                            $result[$dn][$attr] = $_result[$x][$attr][0];
-                            break;
-                    }
+            $dn    = $_result[$x]['dn'];
+            $entry = self::normalize_entry($_result[$x], true);
+
+            if (!empty($entry['objectclass'])) {
+                if (is_array($entry['objectclass'])) {
+                    $entry['objectclass'] = array_map('strtolower', $entry['objectclass']);
                 }
                 else {
-                    $result[$dn][$attr] = array();
-                    for ($z = 0; $z < $_result[$x][$attr]['count']; $z++) {
-                        switch ($attr) {
-                            case 'objectclass':
-                                $result[$dn][$attr][] = strtolower($_result[$x][$attr][$z]);
-                                break;
-                            default:
-                                $result[$dn][$attr][] = $_result[$x][$attr][$z];
-                                break;
-                        }
-                    }
+                    $entry['objectclass'] = strtolower($entry['objectclass']);
                 }
             }
+
+            $result[$dn] = $entry;
         }
 
         return $result;
@@ -1813,16 +1813,15 @@ class Net_LDAP3
         switch ($scope) {
             case 2:
                 return 'sub';
-                break;
+
             case 1:
                 return 'one';
-                break;
+
             case 0:
                 return 'base';
-                break;
+
             default:
                 $this->_debug("Scope $scope is not a valid scope integer");
-                break;
         }
     }
 
@@ -1837,7 +1836,7 @@ class Net_LDAP3
     {
         switch ($scope) {
             case 'sub':
-                $function = $ns_function  = 'ldap_search';
+                $function = $ns_function = 'ldap_search';
                 break;
             case 'base':
                 $function = $ns_function = 'ldap_read';
