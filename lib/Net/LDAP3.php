@@ -1298,7 +1298,7 @@ class Net_LDAP3
 
                                     $this->_debug("old attrs. is array, new attrs. is not array. new attr. exists in old attrs.");
 
-                                    $rdn_attr_value = array_shift($old_attrs[$attr]);
+                                    $rdn_attr_value  = array_shift($old_attrs[$attr]);
                                     $_attr_to_remove = array();
 
                                     foreach ($old_attrs[$attr] as $value) {
@@ -1313,14 +1313,14 @@ class Net_LDAP3
 
                                     if (strtolower($new_attrs[$attr]) !== strtolower($rdn_attr_value)) {
                                         $this->_debug("new attrs is not the same as the old rdn value, issuing a rename");
-                                        $mod_array['rename']['dn'] = $subject_dn;
-                                        $mod_array['rename']['new_rdn'] = $rdn_attr . '=' . $new_attrs[$attr][0];
+                                        $mod_array['rename']['dn']      = $subject_dn;
+                                        $mod_array['rename']['new_rdn'] = $rdn_attr . '=' . self::quote_string($new_attrs[$attr], true);
                                     }
                                 }
                                 else {
                                     $this->_debug("new attrs is not the same as any of the old rdn value, issuing a full rename");
-                                    $mod_array['rename']['dn'] = $subject_dn;
-                                    $mod_array['rename']['new_rdn'] = $rdn_attr . '=' . $new_attrs[$attr];
+                                    $mod_array['rename']['dn']      = $subject_dn;
+                                    $mod_array['rename']['new_rdn'] = $rdn_attr . '=' . self::quote_string($new_attrs[$attr], true);
                                 }
                             }
                             else {
@@ -1331,17 +1331,17 @@ class Net_LDAP3
                                 }
                                 else {
                                     // TODO: This fails.
-                                    $mod_array['rename']['dn'] = $subject_dn;
-                                    $mod_array['rename']['new_rdn'] = $rdn_attr . '=' . $new_attrs[$attr][0];
-                                    $mod_array['del'][$attr] = $old_attrs[$attr][0];
+                                    $mod_array['rename']['dn']      = $subject_dn;
+                                    $mod_array['rename']['new_rdn'] = $rdn_attr . '=' . self::quote_string($new_attrs[$attr][0], true);
+                                    $mod_array['del'][$attr]        = $old_attrs[$attr][0];
                                 }
                             }
                         }
                         else {
                             if (!is_array($new_attrs[$attr])) {
                                 $this->_debug("Renaming " . $old_attrs[$attr] . " to " . $new_attrs[$attr]);
-                                $mod_array['rename']['dn'] = $subject_dn;
-                                $mod_array['rename']['new_rdn'] = $rdn_attr . '=' . $new_attrs[$attr];
+                                $mod_array['rename']['dn']      = $subject_dn;
+                                $mod_array['rename']['new_rdn'] = $rdn_attr . '=' . self::quote_string($new_attrs[$attr], true);
                             }
                             else {
                                 $this->_debug("Adding to replace");
@@ -1350,7 +1350,6 @@ class Net_LDAP3
                                 continue;
                             }
                         }
-
                     }
                     else {
                         if (!isset($new_attrs[$attr]) || $new_attrs[$attr] === '' || (is_array($new_attrs[$attr]) && empty($new_attrs[$attr]))) {
@@ -1446,9 +1445,12 @@ class Net_LDAP3
             $old_ou      = implode(',', $subject_dn_components);
         }
 
+        $subject_dn = self::unified_dn($subject_dn);
+        $prefix     = self::unified_dn('ou=' . $old_ou) . ',';
+
         // object is an organizational unit
-        if (strpos($subject_dn, 'ou=' . $old_ou) === 0) {
-            $root = substr($subject_dn, strlen($old_ou) + 4); // remove ou=*,
+        if (strpos($subject_dn, $prefix) === 0) {
+            $root = substr($subject_dn, strlen($prefix)); // remove ou=*,
 
             if ((!empty($new_attrs['base_dn']) && strtolower($new_attrs['base_dn']) !== strtolower($root))
                 || (strtolower($old_ou) !== strtolower($new_ou))
@@ -1459,15 +1461,22 @@ class Net_LDAP3
 
                 $mod_array['rename']['new_parent'] = $root;
                 $mod_array['rename']['dn']         = $subject_dn;
-                $mod_array['rename']['new_rdn']    = 'ou=' . $new_ou;
+                $mod_array['rename']['new_rdn']    = 'ou=' . self::quote_string($new_ou, true);
             }
         }
         // not OU object, but changed ou attribute
-        else if ((!empty($old_ou) && !empty($new_ou)) && strtolower($old_ou) !== strtolower($new_ou)) {
-            $mod_array['rename']['new_parent'] = $new_ou;
-            if (empty($mod_array['rename']['dn']) || empty($mod_array['rename']['new_rdn'])) {
-                $mod_array['rename']['dn']      = $subject_dn;
-                $mod_array['rename']['new_rdn'] = $rdn_attr . '=' . $new_attrs[$rdn_attr];
+        else if (!empty($old_ou) && !empty($new_ou)) {
+            // unify DN strings for comparison
+            $old_ou = self::unified_dn($old_ou);
+            $new_ou = self::unified_dn($new_ou);
+
+            if (strtolower($old_ou) !== strtolower($new_ou)) {
+                $mod_array['rename']['new_parent'] = $new_ou;
+                if (empty($mod_array['rename']['dn']) || empty($mod_array['rename']['new_rdn'])) {
+                    $rdn_attr_value = self::quote_string($new_attrs[$rdn_attr], true);
+                    $mod_array['rename']['dn']      = $subject_dn;
+                    $mod_array['rename']['new_rdn'] = $rdn_attr . '=' . $rdn_attr_value;
+                }
             }
         }
 
@@ -2202,23 +2211,23 @@ class Net_LDAP3
 
     private function modify_entry_attributes($subject_dn, $attributes)
     {
-        // Opportunities to set false include failed ldap commands.
-        $result = true;
-
         if (is_array($attributes['rename']) && !empty($attributes['rename'])) {
-            $olddn  = $attributes['rename']['dn'];
-            $newrdn = $attributes['rename']['new_rdn'];
-
-            if (!empty($attributes['rename']['new_parent'])) {
-                $new_parent = $attributes['rename']['new_parent'];
-            }
-            else {
-                $new_parent = null;
-            }
+            $olddn      = $attributes['rename']['dn'];
+            $newrdn     = $attributes['rename']['new_rdn'];
+            $new_parent = $attributes['rename']['new_parent'];
 
             $this->_debug("LDAP: C: Rename $olddn to $newrdn,$new_parent");
 
-            $result = ldap_rename($this->conn, $olddn, $newrdn, $new_parent, true);
+            // Note: for some reason the operation fails if RDN contains special characters
+            // and last argument of ldap_rename() is set to TRUE. That's why we use FALSE.
+            // However, we need to modify RDN attribute value later, otherwise it
+            // will contain an array of previous and current values
+            for ($i = 1; $i >= 0; $i--) {
+                $result = ldap_rename($this->conn, $olddn, $newrdn, $new_parent, $i == 1);
+                if ($result) {
+                    break;
+                }
+            }
 
             if ($result) {
                 $this->_debug("LDAP: S: OK");
@@ -2232,6 +2241,12 @@ class Net_LDAP3
                     $old_rdn       = array_shift($old_parent_dn_components);
                     $old_parent_dn = implode(",", $old_parent_dn_components);
                     $subject_dn    = $newrdn . ',' . $old_parent_dn;
+                }
+
+                // modify RDN attribute value, see note above
+                if (!$i && empty($attributes['replace'][$attr])) {
+                    list($attr, $val) = explode('=', $newrdn, 2);
+                    $attributes['replace'][$attr] = self::quote_string($val, true, true);
                 }
             }
             else {
@@ -2514,14 +2529,15 @@ class Net_LDAP3
     /**
      * Quotes attribute value string
      *
-     * @param string $str Attribute value
-     * @param bool   $dn  True if the attribute is a DN
+     * @param string $str     Attribute value
+     * @param bool   $dn      True if the attribute is a DN
+     * @param bool   $reverse Do reverse replacement
      *
      * @return string Quoted string
      */
-    public static function quote_string($str, $is_dn = false)
+    public static function quote_string($str, $is_dn = false, $reverse = false)
     {
-        // take firt entry if array given
+        // take first entry if array given
         if (is_array($str)) {
             $str = reset($str);
         }
@@ -2549,7 +2565,39 @@ class Net_LDAP3
             );
         }
 
+        if ($reverse) {
+            return str_replace(array_values($replace), array_keys($replace), $str);
+        }
+
         return strtr($str, $replace);
+    }
+
+    /**
+     * Unify DN string for comparison
+     *
+     * @para string $str DN string
+     *
+     * @return string Unified DN string
+     */
+    public static function unified_dn($str)
+    {
+        $result = array();
+
+        foreach (explode(',', $str) as $token) {
+            list($attr, $value) = explode('=', $token, 2);
+
+            $pos = 0;
+            while (preg_match('/\\\\[0-9a-fA-F]{2}/', $value, $matches, PREG_OFFSET_CAPTURE, $pos)) {
+                $char  = chr(hexdec(substr($matches[0][0], 1)));
+                $pos   = $matches[0][1];
+                $value = substr_replace($value, $char, $pos, 3);
+                $pos += 1;
+            }
+
+            $result[] = $attr . '=' . self::quote_string($value, true);
+        }
+
+        return implode(',', $result);
     }
 
     /**
