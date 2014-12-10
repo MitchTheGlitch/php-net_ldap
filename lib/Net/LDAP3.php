@@ -1586,6 +1586,13 @@ class Net_LDAP3
         $function  = self::scope_to_function($scope, $ns_function);
         $sizelimit = (int) $this->config['sizelimit'];
         $timelimit = (int) $this->config['timelimit'];
+        $phplimit  = (int) @ini_get('max_execution_time');
+
+        // set LDAP time limit to be (one second) less than PHP time limit
+        // otherwise we have no chance to log the error below
+        if ($phplimit && $timelimit >= $phplimit) {
+            $timelimit = $phplimit - 1;
+        }
 
         $this->_debug("Using function $function on scope $scope (\$ns_function is $ns_function)");
 
@@ -1610,7 +1617,7 @@ class Net_LDAP3
         $ldap_result = @$function($this->conn, $base_dn, $filter, $attrs, 0, $sizelimit, $timelimit);
 
         if (!$ldap_result) {
-            $this->_debug("$function failed for dn=$base_dn: ".ldap_error($this->conn));
+            $this->_warning("$function failed for dn=$base_dn: ".ldap_error($this->conn));
             return false;
         }
 
