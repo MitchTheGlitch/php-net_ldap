@@ -1625,7 +1625,7 @@ class Net_LDAP3
                 $this->_debug("S: ".($errmsg ? $errmsg : ldap_error($this->conn)));
             }
         }
-        else if ($this->debug) {
+        else {
             $this->_debug("S: ".ldap_count_entries($this->conn, $ldap_result)." record(s) found");
         }
 
