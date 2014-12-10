@@ -1630,9 +1630,15 @@ class Net_LDAP3
         }
 
         $result = new Net_LDAP3_Result($this->conn, $base_dn, $filter, $scope, $ldap_result);
-        $result->set('offset', $last_offset);
-        $result->set('count', $vlv_count);
-        $result->set('vlv', true);
+
+        if (isset($last_offset)) {
+            $result->set('offset', $last_offset);
+        }
+        if (isset($vlv_count)) {
+            $result->set('count', $vlv_count);
+        }
+
+        $result->set('vlv', $this->vlv_active);
 
         return $count_only ? $result->count() : $result;
     }
