@@ -1706,6 +1706,8 @@ class Net_LDAP3
         $filter    = '';
 
         foreach ((array) $search['params'] as $field => $param) {
+            $value = (array) $param['value'];
+
             switch ((string)$param['type']) {
                 case 'prefix':
                     $prefix = '';
@@ -1724,6 +1726,13 @@ class Net_LDAP3
                 case '<=':
                     $prefix = '';
                     $suffix = '';
+
+                    // this is a common query to find entry by DN, make sure
+                    // it is a unified DN so special characters are handled correctly
+                    if ($field == 'entrydn') {
+                        $value = array_map(array('Net_LDAP3', 'unified_dn'), $value);
+                    }
+
                     break;
 
                 case 'exists':
@@ -1741,16 +1750,20 @@ class Net_LDAP3
 
             $operator = $param['type'] && in_array($param['type'], $operators) ? $param['type'] : '=';
 
-            if (is_array($param['value'])) {
+            if (count($value) < 2) {
+                $value = array_pop($value);
+            }
+
+            if (is_array($value)) {
                 $val_filter = array();
-                foreach ($param['value'] as $val) {
-                    $value = self::quote_string($val);
-                    $val_filter[] = "(" . $field . $operator . $prefix . $value . $suffix . ")";
+                foreach ($value as $val) {
+                    $val          = self::quote_string($val);
+                    $val_filter[] = "(" . $field . $operator . $prefix . $val . $suffix . ")";
                 }
                 $filter .= "(|" . implode($val_filter, '') . ")";
             }
             else {
-                $value = self::quote_string($param['value']);
+                $value = self::quote_string($value);
                 $filter .= "(" . $field . $operator . $prefix . $value . $suffix . ")";
             }
         }
