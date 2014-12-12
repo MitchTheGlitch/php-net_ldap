@@ -1249,8 +1249,8 @@ class Net_LDAP3
 
         // This is me cheating. Remove this special attribute.
         if (array_key_exists('ou', $old_attrs) || array_key_exists('ou', $new_attrs)) {
-            $old_ou = $old_attrs['ou'];
-            $new_ou = $new_attrs['ou'];
+            $old_ou = is_array($old_attrs['ou']) ? array_shift($old_attrs['ou']) : $old_attrs['ou'];
+            $new_ou = is_array($new_attrs['ou']) ? array_shift($new_attrs['ou']) : $new_attrs['ou'];
             unset($old_attrs['ou']);
             unset($new_attrs['ou']);
         }
