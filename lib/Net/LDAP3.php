@@ -1944,25 +1944,28 @@ class Net_LDAP3
 
                         // Not passing any sort attributes means you don't care
                         if (!empty($sort_attrs)) {
-                            $sort_attrs = (array) $sort_attrs;
+                            $sort_attrs = array_map('strtolower', (array) $sort_attrs);
+
                             foreach ($vlv_index[$base_dn]['sort'] as $sss_config) {
+                                $sss_config = array_map('strtolower', $sss_config);
                                 if (count(array_intersect($sort_attrs, $sss_config)) == count($sort_attrs)) {
+                                    $this->_debug("Sorting matches");
+
                                     return $sort_attrs;
                                 }
                             }
 
-                            $this->_error("The requested sorting does not match any server-side sorting configuration");
-
-                            return false;
+                            $this->_debug("Sorting does not match");
                         }
                         else {
-                            return $vlv_index[$base_dn]['sort'][0];
+                            $sort = array_filter((array) $vlv_index[$base_dn]['sort'][0]);
+                            $this->_debug("Sorting unimportant, use " . $sort[0]);
+
+                            return $sort[0];
                         }
                     }
                     else {
-                        $this->_debug("Scope does not match. VLV: " . var_export($vlv_index[$base_dn]['scope'], true)
-                            . " while looking for " . var_export($scope, true));
-                        return false;
+                        $this->_debug("Scope does not match");
                     }
                 }
                 else {
@@ -2045,7 +2048,7 @@ class Net_LDAP3
             $_vlv_sort = array();
 
             foreach ($vlv_indexes as $vlv_index_dn => $vlv_index_attrs) {
-                $_vlv_sort[] = explode(' ', $vlv_index_attrs['vlvsort']);
+                $_vlv_sort[] = explode(' ', trim($vlv_index_attrs['vlvsort']));
             }
 
             $this->_vlv_indexes_and_searches[] = array(
