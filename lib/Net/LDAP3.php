@@ -1573,6 +1573,7 @@ class Net_LDAP3
             }
             // ...or by fetching all records dn and count them
             else if (!function_exists('ldap_parse_virtuallist_control')) {
+                // @FIXME: this search will ignore $props['search']
                 $vlv_count = $this->search($base_dn, $filter, $scope, array('dn'), $props, true);
             }
 
@@ -2758,6 +2759,11 @@ class Net_LDAP3
 
     /**
      * Return the search string value to be used in VLV controls
+     *
+     * @param array        $sort   List of attributes in vlv index
+     * @param array|string $search Search string or attribute => value hash
+     *
+     * @return string Search string
      */
     private function _vlv_search($sort, $search)
     {
@@ -2770,15 +2776,13 @@ class Net_LDAP3
             return;
         }
 
-        $search_suffix = $this->_fuzzy_search_suffix();
-
-        foreach ($search as $attr => $value) {
-            if (!in_array(strtolower($attr), $sort)) {
+        foreach ((array) $search as $attr => $value) {
+            if ($attr && !in_array(strtolower($attr), $sort)) {
                 $this->_debug("Cannot use VLV search using attribute not indexed: $attr (not in " . var_export($sort, true) . ")");
                 return;
             }
             else {
-                return $value . $search_suffix;
+                return $value . $this->_fuzzy_search_suffix();
             }
         }
     }
