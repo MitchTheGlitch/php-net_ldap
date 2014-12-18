@@ -1959,9 +1959,9 @@ class Net_LDAP3
                         }
                         else {
                             $sort = array_filter((array) $vlv_index[$base_dn]['sort'][0]);
-                            $this->_debug("Sorting unimportant, use " . $sort[0]);
+                            $this->_debug("Sorting unimportant");
 
-                            return $sort[0];
+                            return $sort;
                         }
                     }
                     else {
