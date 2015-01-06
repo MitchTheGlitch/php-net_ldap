@@ -1559,6 +1559,8 @@ class Net_LDAP3
             $attrs = array('dn');
         }
 
+        $function = self::scope_to_function($scope, $ns_function);
+
         if (!$count_only && ($sort = $this->find_vlv($base_dn, $filter, $scope, $props['sort']))) {
             // when using VLV, we get the total count by...
             // ...either reading numSubOrdinates attribute
@@ -1584,7 +1586,6 @@ class Net_LDAP3
             $this->vlv_active = false;
         }
 
-        $function  = self::scope_to_function($scope, $ns_function);
         $sizelimit = (int) $this->config['sizelimit'];
         $timelimit = (int) $this->config['timelimit'];
         $phplimit  = (int) @ini_get('max_execution_time');
