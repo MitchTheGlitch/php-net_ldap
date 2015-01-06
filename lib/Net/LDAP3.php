@@ -1984,14 +1984,47 @@ class Net_LDAP3
      */
     protected function find_vlv_indexes_and_searches()
     {
+        // Use of Virtual List View control has been specifically disabled.
         if ($this->config['vlv'] === false) {
             return false;
         }
 
+        // Virtual List View control has been configured in kolab.conf, for example;
+        //
+        // [ldap]
+        // vlv = [
+        //         {
+        //                 'ou=People,dc=example,dc=org': {
+        //                         'scope': 'sub',
+        //                         'filter': '(objectclass=inetorgperson)',
+        //                         'sort' : [
+        //                                 [
+        //                                         'displayname',
+        //                                         'sn',
+        //                                         'givenname',
+        //                                         'cn'
+        //                                     ]
+        //                             ]
+        //                     }
+        //             },
+        //         {
+        //                 'ou=Groups,dc=example,dc=org': {
+        //                         'scope': 'sub',
+        //                         'filter': '(objectclass=groupofuniquenames)',
+        //                         'sort' : [
+        //                                 [
+        //                                         'cn'
+        //                                     ]
+        //                             ]
+        //                     }
+        //             },
+        //     ]
+        //
         if (is_array($this->config['vlv'])) {
             return $this->config['vlv'];
         }
 
+        // We have done this dance before.
         if ($this->_vlv_indexes_and_searches !== null) {
             return $this->_vlv_indexes_and_searches;
         }
