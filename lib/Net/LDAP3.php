@@ -779,7 +779,7 @@ class Net_LDAP3
 
         // remove password from debug log
         $command_debug     = $command;
-        $command_debug[11] = '*';
+        $command_debug[13] = '*';
 
         $command       = implode(' ', $command);
         $command_debug = implode(' ', $command_debug);
