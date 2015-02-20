@@ -1552,12 +1552,16 @@ class Net_LDAP3
             return false;
         }
 
-        $this->_debug("C: Search base dn: [$base_dn] scope [$scope] with filter [$filter]");
-
         // make sure attributes list is not empty
         if (empty($attrs)) {
             $attrs = array('dn');
         }
+        // make sure filter is not empty
+        if (empty($filter)) {
+            $filter = '(objectclass=*)';
+        }
+
+        $this->_debug("C: Search base dn: [$base_dn] scope [$scope] with filter [$filter]");
 
         $function = self::scope_to_function($scope, $ns_function);
 
