@@ -3030,7 +3030,7 @@ class Net_LDAP3
      * @param string $domain     Domain name
      * @param array  $attributes Result attributes
      *
-     * @return array|bool Domain attributes or False if not found
+     * @return array|bool Domain attributes (plus 'dn' attribute) or False if not found
      */
     public function find_domain($domain, $attributes = array('*'))
     {
@@ -3052,7 +3052,10 @@ class Net_LDAP3
 
         if ($domain_dn) {
             $result = $this->get_entry_attributes($domain_dn, $attributes);
-            if (empty($result)) {
+            if (!empty($result)) {
+                $result['dn'] = $domain_dn;
+            }
+            else {
                 $result = false;
             }
         }
@@ -3068,9 +3071,10 @@ class Net_LDAP3
             $domain_filter = "(&" . $domain_filter . "(" . $name_attribute . "=" . self::quote_string($domain) . "))";
 
             if ($result = $this->search($domain_base_dn, $domain_filter, 'sub', $attributes)) {
-                $result    = $result->entries(true);
-                $domain_dn = key($result);
-                $result    = $result[$domain_dn];
+                $result       = $result->entries(true);
+                $domain_dn    = key($result);
+                $result       = $result[$domain_dn];
+                $result['dn'] = $domain_dn;
 
                 // cache domain DN
                 $this->set_cache_data($ckey, $domain_dn);
