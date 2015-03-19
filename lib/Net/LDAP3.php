@@ -1950,7 +1950,8 @@ class Net_LDAP3
 
         $this->_debug("Existing vlv index and search information", $vlv_indexes);
 
-        $filter = strtolower($filter);
+        $filter  = strtolower($filter);
+        $base_dn = self::unified_dn($base_dn);
 
         foreach ($vlv_indexes as $vlv_index) {
             if (!empty($vlv_index[$base_dn])) {
@@ -2079,7 +2080,7 @@ class Net_LDAP3
 
         foreach ($vlv_searches->entries(true) as $vlv_search_dn => $vlv_search_attrs) {
             // The attributes we are interested in are as follows:
-            $_vlv_base_dn = $vlv_search_attrs['vlvbase'];
+            $_vlv_base_dn = self::unified_dn($vlv_search_attrs['vlvbase']);
             $_vlv_scope   = $vlv_search_attrs['vlvscope'];
             $_vlv_filter  = $vlv_search_attrs['vlvfilter'];
 
