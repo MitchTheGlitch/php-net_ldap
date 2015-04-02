@@ -3074,11 +3074,17 @@ class Net_LDAP3
             if ($result = $this->search($domain_base_dn, $domain_filter, 'sub', $attributes)) {
                 $result       = $result->entries(true);
                 $domain_dn    = key($result);
-                $result       = $result[$domain_dn];
-                $result['dn'] = $domain_dn;
 
-                // cache domain DN
-                $this->set_cache_data($ckey, $domain_dn);
+                if (empty($domain_dn)) {
+                    $result = false;
+                }
+                else {
+                    $result       = $result[$domain_dn];
+                    $result['dn'] = $domain_dn;
+
+                    // cache domain DN
+                    $this->set_cache_data($ckey, $domain_dn);
+                }
             }
         }
 
