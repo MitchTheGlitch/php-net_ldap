@@ -3063,13 +3063,18 @@ class Net_LDAP3
         else {
             $domain_base_dn = $this->config_get('domain_base_dn');
             $domain_filter  = $this->config_get('domain_filter');
-            $name_attribute = $this->config_get('domain_name_attribute');
 
-            if (empty($name_attribute)) {
-                $name_attribute = 'associateddomain';
+            if (strpos($domain_filter, '%s') !== false) {
+                $domain_filter = str_replace('%s', self::quote_string($domain), $domain_filter);
             }
+            else {
+                $name_attribute = $this->config_get('domain_name_attribute');
+                if (empty($name_attribute)) {
+                    $name_attribute = 'associateddomain';
+                }
 
-            $domain_filter = "(&" . $domain_filter . "(" . $name_attribute . "=" . self::quote_string($domain) . "))";
+                $domain_filter = "(&" . $domain_filter . "(" . $name_attribute . "=" . self::quote_string($domain) . "))";
+            }
 
             if ($result = $this->search($domain_base_dn, $domain_filter, 'sub', $attributes)) {
                 $result       = $result->entries(true);
