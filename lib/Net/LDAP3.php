@@ -3060,8 +3060,7 @@ class Net_LDAP3
                 $result = false;
             }
         }
-        else {
-            $domain_base_dn = $this->config_get('domain_base_dn');
+        else if ($domain_base_dn = $this->config_get('domain_base_dn')) {
             $domain_filter  = $this->config_get('domain_filter');
 
             if (strpos($domain_filter, '%s') !== false) {
