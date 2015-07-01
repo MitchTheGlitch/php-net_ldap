@@ -665,7 +665,7 @@ class Net_LDAP3
     public function delete_entry_recursive($entry_dn)
     {
         // searching for sub entries, but not scope sub, just one level
-        $result = $this->search($entry_dn, '(objectclass=*)', 'one');
+        $result = $this->search($entry_dn, '(|(objectclass=*)(objectclass=ldapsubentry))', 'one');
 
         if ($result) {
             $entries = $result->entries(true);
