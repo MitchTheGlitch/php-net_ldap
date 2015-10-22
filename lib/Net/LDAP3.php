@@ -199,6 +199,8 @@ class Net_LDAP3
         foreach ($attributes as $attr_name => $attr_value) {
             if (empty($attr_value)) {
                 unset($attributes[$attr_name]);
+            } else if (is_array($attr_value)) {
+                $attributes[$attr_name] = array_values($attr_value);
             }
         }
 
