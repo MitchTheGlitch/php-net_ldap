@@ -206,7 +206,7 @@ class Net_LDAP3
 
         $this->_debug("C: Add $entry_dn: " . json_encode($attributes));
 
-        if (($add_result = @ldap_add($this->conn, $entry_dn, $attributes)) == false) {
+        if (!ldap_add($this->conn, $entry_dn, $attributes)) {
             $this->_debug("S: " . ldap_error($this->conn));
             $this->_warning("LDAP: Adding entry $entry_dn failed. " . ldap_error($this->conn));
 
